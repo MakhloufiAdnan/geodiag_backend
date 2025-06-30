@@ -1,16 +1,14 @@
 services:
   postgres:
-    image: postgres:16-alpine  
+    image: postgres:17-alpine3.21
     container_name: geodiag_db
     restart: always
-    environment:
-      POSTGRES_USER: user_geodiag      
-      POSTGRES_PASSWORD: password_geodiag
-      POSTGRES_DB: geodiag_db
+    env_file:
+      - .env
     ports:
-      - "5432:5432"  
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  postgres_data: 
