@@ -1,11 +1,10 @@
 -- ########## 0. FONCTION TRIGGER POUR LA MISE À JOUR AUTOMATIQUE ##########
--- Met à jour le champ 'updated_at' à la date/heure actuelle.
-
+-- Cette fonction met à jour le champ 'updated_at' à la date/heure actuelle.
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+	NEW.updated_at = NOW();
+	RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -17,13 +16,13 @@ CREATE TYPE payment_status AS ENUM ('pending', 'completed', 'failed');
 CREATE TYPE order_status AS ENUM ('pending', 'processing', 'completed', 'cancelled');
 CREATE TYPE ticket_status AS ENUM ('open', 'in_progress', 'closed', 'resolved');
 CREATE TYPE ticket_priority AS ENUM ('low', 'medium', 'high', 'critical');
-CREATE TYPE energy_type AS ENUM ('diesel', 'gasoline', 'electric', 'hybrid', 'other'); -- Ajout de 'hybrid'
-CREATE TYPE measurement_value_status AS ENUM ('in_tolerance', 'out_of_tolerance'); -- Plus précis que in/out_of_spec
+CREATE TYPE energy_type AS ENUM ('diesel', 'gasoline', 'electric', 'hybrid', 'other'); 
+CREATE TYPE measurement_value_status AS ENUM ('in_tolerance', 'out_of_tolerance'); 
 CREATE TYPE submission_status AS ENUM ('new', 'read', 'archived');
-CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer'); -- 'cb' est trop franco-français
+CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer'); 
 CREATE TYPE vehicle_image_category AS ENUM ('front_axle', 'rear_axle', 'vin_plate', 'damage', 'other');
 
--- ########## 2. TABLES PRINCIPALES ##########
+-- ########## 2. TABLES PRINCIPALES (COEUR DE L'APPLICATION) ##########
 
 CREATE TABLE companies (
     company_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,6 +94,18 @@ CREATE TABLE licenses (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ########## TABLE POUR LA GESTION DES SESSIONS VIA REFRESH TOKENS ##########
+
+CREATE TABLE refresh_tokens (
+    token_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    -- Stockage d'un hash du token
+    token_hash VARCHAR(255) NOT NULL,
+    -- Date d'expiration du refresh token
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ########## 3. TABLES DE DONNÉES (VÉHICULES & MESURES) ##########
 
 CREATE TABLE brands (
@@ -145,15 +156,27 @@ CREATE TABLE measurement_reports (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- La table qui définit chaque mesure possible
+CREATE TABLE measurement_definitions (
+    definition_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- Code unique pour la mesure (ex: 'camber_front_left')
+    code VARCHAR(100) UNIQUE NOT NULL,
+    -- Nom lisible pour l'affichage (ex: 'Carrossage Avant Gauche')
+    label VARCHAR(255) NOT NULL,
+    -- Unité de la mesure ('degrés', 'mm', 'min')
+    unit VARCHAR(20) NOT NULL,
+    description TEXT
+);
+
 CREATE TABLE measurement_values (
-    value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
-    measurement_type VARCHAR(100) NOT NULL, -- ex: 'camber_front_left'
-    measured_value DECIMAL(10, 2),
-    manufacturer_min_value DECIMAL(10, 2),
-    manufacturer_max_value DECIMAL(10, 2),
-    status measurement_value_status NOT NULL,
-    sensor_raw_data JSONB
+	value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
+	measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
+	measured_value DECIMAL(10, 2),
+	manufacturer_min_value DECIMAL(10, 2),
+	manufacturer_max_value DECIMAL(10, 2),
+	status measurement_value_status NOT NULL,
+	sensor_raw_data JSONB
 );
 
 CREATE TABLE vehicle_images (
@@ -167,8 +190,8 @@ CREATE TABLE vehicle_images (
 
 CREATE TABLE interpretation_rules (
     rule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    model_id UUID REFERENCES models(model_id) ON DELETE SET NULL, -- Règle spécifique à un modèle
-    measurement_type VARCHAR(100) NOT NULL,
+    model_id UUID REFERENCES models(model_id) ON DELETE SET NULL,
+    measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
     condition VARCHAR(100) NOT NULL, -- ex: 'less_than_min', 'greater_than_max'
     interpretation_text TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -241,3 +264,6 @@ CREATE INDEX idx_orders_company_id ON orders(company_id);
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_support_tickets_company_id ON support_tickets(company_id);
 CREATE INDEX idx_ticket_messages_ticket_id ON ticket_messages(ticket_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_measurement_values_definition_id ON measurement_values(measurement_definition_id);
+CREATE INDEX idx_interpretation_rules_definition_id ON interpretation_rules(measurement_definition_id);

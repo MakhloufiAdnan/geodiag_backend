@@ -3,7 +3,10 @@ import userController from '../controllers/userController.js';
 
 const router = Router();
 
-// L'URL /api/users sera gérée par cette route
+router.post('/users', userController.createUser);
 router.get('/users', userController.getAllUsers);
+router.get('/users/:id', userController.getUserById);
+router.put('/users/:id', userController.updateUser);
+router.delete('/users/:id', userController.deleteUser);
 
 export default router;
