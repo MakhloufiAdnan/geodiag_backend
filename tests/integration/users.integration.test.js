@@ -43,6 +43,22 @@ describe('Routes CRUD /api/users', () => {
         await db.query('DELETE FROM users');
     });
 
+    // Test pour CREATE
+    it('POST /users - doit créer un nouvel utilisateur', async () => {
+        const newUser = {
+            email: 'new.user@test.com',
+            password: 'password123',
+            first_name: 'John',
+            last_name: 'Smith',
+            role: 'technician',
+            company_id: testCompanyId,
+        };
+        const res = await request(app).post('/api/users').send(newUser);
+        expect(res.statusCode).toEqual(201);
+        expect(res.body.email).toBe('new.user@test.com');
+    });
+
+    // Test pour READ (tous les utilisateurs)
     it('GET /users - doit retourner une liste paginée d\'utilisateurs', async () => {
         const res = await request(app).get('/api/users');
         expect(res.statusCode).toEqual(200);
@@ -50,12 +66,14 @@ describe('Routes CRUD /api/users', () => {
         expect(res.body.data[0].email).toBe('user@test.com');
     });
 
+    // Test pour READ (un seul utilisateur)
     it('GET /users/:id - doit retourner un utilisateur spécifique', async () => {
         const res = await request(app).get(`/api/users/${testUserId}`);
         expect(res.statusCode).toEqual(200);
         expect(res.body.userId).toBe(testUserId);
     });
 
+    // Test pour UPDATE
     it('PUT /users/:id - doit mettre à jour un utilisateur', async () => {
         const updatedData = { first_name: 'John' };
         const res = await request(app)
@@ -66,6 +84,7 @@ describe('Routes CRUD /api/users', () => {
         expect(res.body.firstName).toBe('John');
     });
 
+    // Test pour DELETE
     it('DELETE /users/:id - doit supprimer un utilisateur', async () => {
         const res = await request(app).delete(`/api/users/${testUserId}`);
         expect(res.statusCode).toEqual(204);
