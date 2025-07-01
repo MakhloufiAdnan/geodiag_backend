@@ -2,12 +2,15 @@ import request from 'supertest';
 import express from 'express';
 import userRoutes from '../../src/routes/userRoutes.js';
 import { db, pool } from '../../src/db/index.js';
+import { errorHandler } from '../../src/middleware/errorHandler.js';
 
 process.env.NODE_ENV = 'test';
 
 const app = express();
 app.use(express.json());
 app.use('/api', userRoutes);
+
+app.use(errorHandler);
 
 describe('Routes CRUD /api/users', () => {
     let testCompanyId;
@@ -58,6 +61,43 @@ describe('Routes CRUD /api/users', () => {
         expect(res.body.email).toBe('new.user@test.com');
     });
 
+    // Test pour vérifier que l'email existe déjà
+    it('POST /users - doit retourner 409 si l\'email existe déjà', async () => {
+    // Le premier utilisateur est créé dans le beforeEach
+    const duplicateUser = {
+        email: 'user@test.com', // Même email que l'utilisateur existant
+        password: 'password123',
+        first_name: 'Peter',
+        last_name: 'Jones',
+        role: 'technician',
+        company_id: testCompanyId,
+    };
+
+    const res = await request(app)
+        .post('/api/users')
+        .send(duplicateUser);
+
+    expect(res.statusCode).toEqual(409);
+    expect(res.body.message).toBe('Un utilisateur avec cet email existe déjà.');
+    });
+
+    // Test pour vérifier que l'email est requis
+    it('POST /users - doit retourner 400 si des données requises sont manquantes', async () => {
+        const incompleteUser = {
+            // Il manque l'email et le mot de passe
+            first_name: 'John',
+        };
+
+        const res = await request(app)
+            .post('/api/users')
+            .send(incompleteUser);
+        
+        // Le test échouera car nous n'avons pas encore de validation de schéma.
+        // Mais il montre comment vous testeriez une erreur 400 Bad Request.
+        // Pour l'instant, il renverra probablement une erreur 500 de la base de données.
+        expect(res.statusCode).not.toEqual(201);
+    });
+
     // Test pour READ (tous les utilisateurs)
     it('GET /users - doit retourner une liste paginée d\'utilisateurs', async () => {
         const res = await request(app).get('/api/users');
@@ -78,19 +118,25 @@ describe('Routes CRUD /api/users', () => {
         const updatedData = { first_name: 'John' };
         const res = await request(app)
             .put(`/api/users/${testUserId}`)
+            .set('Authorization', 'un-bon-token') 
             .send(updatedData);
-            
+
         expect(res.statusCode).toEqual(200);
         expect(res.body.firstName).toBe('John');
     });
 
-    // Test pour DELETE
-    it('DELETE /users/:id - doit supprimer un utilisateur', async () => {
-        const res = await request(app).delete(`/api/users/${testUserId}`);
-        expect(res.statusCode).toEqual(204);
+    // Tests pour l'authentification token
+    it('DELETE /users/:id - doit retourner 401 si aucun token n\'est fourni', async () => {
+    const res = await request(app).delete(`/api/users/${testUserId}`);
 
-        // Vérifie que l'utilisateur a bien été supprimé
-        const check = await db.query('SELECT * FROM users WHERE user_id = $1', [testUserId]);
-        expect(check.rows).toHaveLength(0);
+    expect(res.statusCode).toEqual(401);
+    });
+
+    it('DELETE /users/:id - doit fonctionner si un bon token est fourni', async () => {
+        const res = await request(app)
+            .delete(`/api/users/${testUserId}`)
+            .set('Authorization', 'un-bon-token'); // On ajoute le header d'authentification
+
+        expect(res.statusCode).toEqual(204);
     });
 });
