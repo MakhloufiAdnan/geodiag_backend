@@ -121,7 +121,7 @@ class UserController {
      */
     async createUser(req, res) {
         try {
-            const dataToCreate = { ...req.body, company_id: 'ID_DE_COMPANIE_EXISTANT' };
+            const dataToCreate = req.body;
             const newUser = await userService.createUser(dataToCreate);
             res.status(201).json(new UserDto(newUser)); 
         } catch (error) {
