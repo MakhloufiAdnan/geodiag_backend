@@ -7,12 +7,30 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Job pour lancer les tests
   test:
     runs-on: ubuntu-latest
+
+    # 1. Configuration du service PostgreSQL
+    services:
+      postgres:
+        image: postgres:17-alpine
+        # Variables pour initialiser la BDD du service
+        env:
+          POSTGRES_USER: user_geodiag
+          POSTGRES_PASSWORD: c036533f7e04306aec7857e2cc40a7cf0f6b09ff546fe5f287c5c782ddbac135
+          POSTGRES_DB: geodiag_test_db
+        # Option pour vérifier que la BDD est prête
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # 2. Étapes du job de test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -21,29 +39,34 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 3. Configuration de la base de données
+      - name: Install PostgreSQL Client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply DB Schema
+        run: psql -h postgres -U user_geodiag -d geodiag_test_db -f ./resources/V1__Initial_schema.sql
+        env:
+          PGPASSWORD: c036533f7e04306aec7857e2cc40a7cf0f6b09ff546fe5f287c5c782ddbac135
+
       - name: Run tests
         run: npm test
+        env:
+          DB_HOST: postgres 
+          DB_PORT: 5432
+          DB_USER: user_geodiag
+          DB_PASSWORD: c036533f7e04306aec7857e2cc40a7cf0f6b09ff546fe5f287c5c782ddbac135
+          DB_DATABASE: geodiag_test_db
 
-  # Job pour le déploiement 
+  # Déploiement uniquement pour les tags qui commencent par 'v'
   deploy:
-    # Ne se lance que lorsque je met un tag qui commence par "v"
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: test # S'assure que les tests passent avant de déployer
+    needs: test
     runs-on: ubuntu-latest
+    environment: Product
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      # Etapes de déploiement 
-      - name: Deploy to production
-        run: echo "Déploiement en cours..."
+      - name: Deploy to Render
+        run: echo "Déploiement avec les secrets..."
         env:
-          # On utilise les secrets configurés dans GitHub
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
