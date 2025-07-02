@@ -1,5 +1,6 @@
 import userRepository from '../repositories/userRepository.js';
 import bcrypt from 'bcrypt';
+import { generateToken } from '../utils/jwtUtils.js';
 
 class UserService {
     async getAllUsers(page, limit) {
@@ -65,6 +66,24 @@ class UserService {
 
     async deleteUser(id) {
         return userRepository.delete(id);
+    }
+
+    async loginUser(email, password) {
+        // 1. Trouver l'utilisateur par email
+        const user = await userRepository.findByEmail(email);
+        if (!user) {
+            throw new Error('Identifiants invalides');
+        }
+
+        // 2. Vérifier le mot de passe
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            throw new Error('Identifiants invalides');
+        }
+
+        // 3. Si tout est bon, générer et retourner le token
+        const token = generateToken(user.user_id);
+        return { token, user: new UserDto(user) }; // Retourne le token et les infos utilisateur
     }
 }
 

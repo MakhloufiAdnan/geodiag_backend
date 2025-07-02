@@ -1,0 +1,49 @@
+name: CI & Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # Job pour lancer les tests
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+  # Job pour le déploiement 
+  deploy:
+    # Ne se lance que lorsque je met un tag qui commence par "v"
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test # S'assure que les tests passent avant de déployer
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Etapes de déploiement 
+      - name: Deploy to production
+        run: echo "Déploiement en cours..."
+        env:
+          # On utilise les secrets configurés dans GitHub
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}

@@ -1,0 +1,8 @@
+# Dépendances locales, elles seront installées dans le conteneur
+node_modules
+
+# Fichiers d'environnement, ils seront fournis au moment du lancement
+.env
+
+# Fichiers de log
+npm-debug.log
