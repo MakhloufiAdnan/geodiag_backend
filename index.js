@@ -1,3 +1,6 @@
+// Affichez la variable pour le débogage
+console.log("Variable DATABASE_URL lue :", process.env.DATABASE_URL);
+
 import express from 'express';
 import userRoutes from './src/routes/userRoutes.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
