@@ -7,6 +7,11 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// Route pour le "Health Check" de Render
+app.get('/', (req, res) => {
+    res.status(200).send('API Geodiag is running. 🎉');
+});
+
 // 1. On déclare les routes
 app.use('/api', userRoutes);
 
