@@ -1,16 +1,26 @@
 import pg from 'pg';
-import testConfig from '../config/testDatabase.js';
 import devConfig from '../config/database.js';
+import testConfig from '../config/testDatabase.js'; 
 
-// Sélection de la configuration en fonction de l'environnement
-const config = process.env.NODE_ENV === 'test' ? testConfig : devConfig;
+let config;
 
-// Utilisation de Pool du module pg
+if (process.env.NODE_ENV === 'test') {
+    // Priorité à DATABASE_URL pour le CI/CD
+    if (process.env.DATABASE_URL) {
+        config = { connectionString: process.env.DATABASE_URL };
+    } else {
+        // Sinon, j'utilise la configuration locale pour les tests
+        config = testConfig;
+    }
+} else {
+    // Configuration pour le développement ou la production
+    config = devConfig;
+}
+
 const pool = new pg.Pool(config);
 
-// J'exporte directement l'objet db qui contient la fonction query
 export const db = {
     query: (text, params) => pool.query(text, params),
 };
 
-export { pool }; 
+export { pool };
