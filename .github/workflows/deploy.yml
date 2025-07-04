@@ -90,6 +90,7 @@ jobs:
           PGUSER: ${{ secrets.PROD_DB_USER }}
           PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
+          PGSSLMODE: require
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
           JWT_EXPIRATION: ${{ secrets.PROD_JWT_EXPIRATION }}
       
