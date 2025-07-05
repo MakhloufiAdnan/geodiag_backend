@@ -1,93 +1,102 @@
-# geodiag_backend
+Geodiag Backend API
+Backend API pour l'application de contrôle de géométrie des trains roulants Geodiag. Ce service gère les comptes clients, les licences, les techniciens, les véhicules et les données de mesure, et expose à la fois une API REST et une API GraphQL.
 
+✨ Fonctionnalités
+Double API : API RESTful et API GraphQL pour une flexibilité maximale.
 
+Gestion des Comptes : Inscription et gestion multi-niveaux (Compagnies et Techniciens).
 
-## Getting started
+Système de Licences : Gestion complète des offres, commandes, paiements et licences.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Authentification Sécurisée : Basée sur JWT (JSON Web Tokens).
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Base de Données Robuste : Schéma PostgreSQL complet avec migrations gérées par node-pg-migrate.
 
-## Add your files
+CI/CD Automatisé : Intégration et déploiement continus avec GitHub Actions.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Environnement Conteneurisé : Utilisation de Docker et Docker Compose pour un développement local fiable.
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/testgitlab7114936/geodiag_backend.git
-git branch -M main
-git push -uf origin main
-```
+🛠️ Stack Technique
+Langage : Node.js (ESM)
 
-## Integrate with your tools
+Framework : Express.js
 
-- [ ] [Set up project integrations](https://gitlab.com/testgitlab7114936/geodiag_backend/-/settings/integrations)
+API GraphQL : Apollo Server v4
 
-## Collaborate with your team
+Base de Données : PostgreSQL
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+Authentification : JWT, bcrypt
 
-## Test and Deploy
+Validation : Joi
 
-Use the built-in continuous integration in GitLab.
+Tests : Jest, Supertest
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+CI/CD : GitHub Actions
 
-***
+Environnement : Docker
 
-# Editing this README
+🚀 Démarrage Rapide (Local)
+Suivez ces étapes pour lancer le projet sur votre machine locale.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Prérequis
+Node.js (v22 ou supérieure)
 
-## Suggestions for a good README
+Docker et Docker Compose
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+1. Cloner le Dépôt
+git clone [https://github.com/MakhloufiAdnan/geodiag_backend.git](https://github.com/MakhloufiAdnan/geodiag_backend.git)
+cd geodiag_backend
 
-## Name
-Choose a self-explaining name for your project.
+2. Configurer l'Environnement
+Créez un fichier .env à la racine du projet en copiant le modèle .env.example.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+# Vous pouvez copier le contenu ci-dessous dans un nouveau fichier .env
+# .env
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+# Base de données locale (utilisée par docker-compose)
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=geodiag
+DB_PASSWORD=your_strong_password_here # Changez ceci
+DB_DATABASE=geodiag_test_db
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+# Secrets pour JWT
+JWT_SECRET=your_super_secret_jwt_key # Changez ceci
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+3. Lancer les Services
+Lancez la base de données PostgreSQL dans un conteneur Docker.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+docker-compose up -d
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+4. Installer les Dépendances
+npm install
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+5. Appliquer les Migrations
+Créez les tables dans votre base de données locale.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+npm run migrate up
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+6. Lancer le Serveur
+npm start
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Votre API est maintenant accessible à l'adresse http://localhost:3000 (ou le port que vous avez défini).
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+📜 Scripts Disponibles
+npm start : Démarre le serveur en mode production.
 
-## License
-For open source projects, say how it is licensed.
+npm test : Lance la suite de tests avec Jest.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+npm run test:coverage : Lance les tests et génère un rapport de couverture.
+
+npm run lint : Analyse le code avec ESLint pour détecter les problèmes de style.
+
+npm run migrate up : Applique toutes les migrations de base de données en attente.
+
+npm run migrate down : Annule la dernière migration appliquée.
+
+⚙️ Intégration et Déploiement Continus (CI/CD)
+Le projet est configuré avec GitHub Actions pour automatiser les tests et le déploiement.
+
+Tests : Un push ou une pull request sur la branche main déclenche automatiquement le job de test (linting, audit de sécurité, tests d'intégration).
+
+Déploiement : La création et le push d'un tag Git commençant par v (ex: v1.2.0) déclenchent le déploiement en production sur Render.

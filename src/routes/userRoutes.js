@@ -1,14 +1,17 @@
 import { Router } from 'express';
 import userController from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { validate, createUserSchema } from '../validators/userValidator.js';
+import { validateUserCreation, validateUserId } from '../validators/userValidator.js';
 
 const router = Router();
 
-router.post('/users', validate(createUserSchema), userController.createUser);
-router.get('/users', userController.getAllUsers);
-router.get('/users/:id', userController.getUserById);
-router.put('/users/:id', userController.updateUser);
-router.delete('/users/:id', protect, userController.deleteUser);
+// Routes générales
+router.post('/users', protect, validateUserCreation, userController.createUser);
+router.get('/users', protect, userController.getAllUsers);
+
+// Routes spécifiques à un ID, avec validation du paramètre UUID
+router.get('/users/:id', protect, validateUserId, userController.getUserById);
+router.put('/users/:id', protect, validateUserId, userController.updateUser);
+router.delete('/users/:id', protect, validateUserId, userController.deleteUser);
 
 export default router;

@@ -1,20 +1,37 @@
 import Joi from 'joi';
+import { validate } from '../middleware/validationMiddleware.js';
 
-export const createUserSchema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().min(8).required(),
-    first_name: Joi.string().required(),
-    last_name: Joi.string().required(),
-    role: Joi.string().valid('admin', 'technician').required(),
-    company_id: Joi.string().uuid().required(),
+const createUserSchema = Joi.object({
+    email: Joi.string().email().required().messages({
+        'string.email': 'L\'email doit être une adresse valide.',
+        'any.required': 'L\'email est obligatoire.'
+    }),
+    password: Joi.string().min(8).required().messages({
+        'string.min': 'Le mot de passe doit contenir au moins 8 caractères.',
+        'any.required': 'Le mot de passe est obligatoire.'
+    }),
+    first_name: Joi.string().required().messages({
+        'any.required': 'Le prénom est obligatoire.'
+    }),
+    last_name: Joi.string().required().messages({
+        'any.required': 'Le nom de famille est obligatoire.'
+    }),
+    role: Joi.string().valid('admin', 'technician').required().messages({
+        'any.only': 'Le rôle doit être "admin" ou "technician".',
+        'any.required': 'Le rôle est obligatoire.'
+    }),
+    company_id: Joi.string().uuid().required().messages({
+        'string.guid': 'L\'ID de la compagnie doit être un UUID valide.',
+        'any.required': 'L\'ID de la compagnie est obligatoire.'
+    }),
 });
 
-// Middleware de validation
-export const validate = (schema) => (req, res, next) => {
-    const { error } = schema.validate(req.body);
-    if (error) {
-        // Si la validation échoue, on renvoie une erreur 400
-        return res.status(400).json({ message: error.details[0].message });
-    }
-    next();
-};
+const uuidSchema = Joi.object({
+    id: Joi.string().uuid().required().messages({
+        'string.guid': 'L\'ID dans l\'URL doit être un UUID valide.'
+    })
+});
+
+// Exporter les middlewares prêts à l'emploi
+export const validateUserCreation = validate(createUserSchema);
+export const validateUserId = validate(uuidSchema, 'params');

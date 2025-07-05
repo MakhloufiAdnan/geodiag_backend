@@ -1,5 +1,4 @@
 name: CI & Deploy
-
 on:
   push:
     branches: [ "main" ]
@@ -10,7 +9,7 @@ on:
 
 jobs:
   # ===============================================
-  # ==      JOB 1: TESTER L'APPLICATION          ==
+  # ==       JOB 1: TESTER L'APPLICATION         ==
   # ===============================================
   test:
     name: Test Application
@@ -43,13 +42,17 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Scan for vulnerabilities
+        run: npm audit --audit-level=high
 
       - name: Apply DB migrations to test database
-        # Exécute les migrations sur la BDD de test temporaire
         run: npm run migrate up
         env:
-          # Construit l'URL de connexion pour node-pg-migrate
           DATABASE_URL: postgresql://geodiag:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/geodiag_test
 
       - name: Run tests
@@ -59,7 +62,7 @@ jobs:
           JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
 
   # ===============================================
-  # ==     JOB 2: DÉPLOYER EN PRODUCTION         ==
+  # ==       JOB 2: DÉPLOYER EN PRODUCTION       ==
   # ===============================================
   deploy:
     name: Deploy to Production
@@ -78,11 +81,11 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install production dependencies
+        ### RECOMMANDATION : Omettre les devDependencies en production.
+        run: npm ci --omit=dev
 
       - name: Apply DB migrations to production database
-        # Met à jour la base de données de production avant de déployer le code
         run: npm run migrate up
         env:
           PGHOST: ${{ secrets.PROD_DB_HOST }}
@@ -91,8 +94,6 @@ jobs:
           PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
           PGSSLMODE: require
-          JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
-          JWT_EXPIRATION: ${{ secrets.PROD_JWT_EXPIRATION }}
       
       - name: Deploy application to Render
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
