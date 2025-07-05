@@ -1,7 +1,9 @@
 import companyRepository from '../repositories/companyRepository.js';
 import userRepository from '../repositories/userRepository.js';
 import bcrypt from 'bcrypt';
-import { pool } from '../db/index.js'; // Pour les transactions
+import { pool } from '../db/index.js'; 
+import { generateToken } from '../utils/jwtUtils.js';
+import { UserDto } from '../dtos/userDto.js'; 
 
 class RegistrationService {
     async registerCompany(registrationData) {
@@ -25,14 +27,14 @@ class RegistrationService {
         try {
             await client.query('BEGIN'); // Début de la transaction
 
-            // 1. Créer la compagnie
+            // Créer la compagnie
             const newCompany = await companyRepository.create(companyData, client);
 
-            // 2. Hacher le mot de passe de l'admin
+            // Hacher le mot de passe de l'admin
             const saltRounds = 10;
             const password_hash = await bcrypt.hash(adminData.password, saltRounds);
             
-            // 3. Créer l'utilisateur admin associé
+            // Créer l'utilisateur admin associé
             const newAdmin = await userRepository.create({
                 ...adminData,
                 password_hash,
@@ -40,11 +42,19 @@ class RegistrationService {
                 role: 'admin'
             }, client);
 
+            // Générer le token JWT pour le nouvel admin
+            const payload = { userId: newAdmin.user_id, companyId: newCompany.company_id, role: newAdmin.role };
+            const token = generateToken(payload);
+
             await client.query('COMMIT'); // Valider la transaction
 
-            // Ne jamais renvoyer le hash du mot de passe
-            delete newAdmin.password_hash;
-            return { company: newCompany, admin: newAdmin };
+            // 3. Retourner le token avec les informations de l'utilisateur et de la compagnie
+            // L'application frontend pourra utiliser ce token pour connecter l'utilisateur immédiatement.
+            return {
+                token,
+                user: new UserDto(newAdmin),
+                company: newCompany 
+            };
 
         } catch (e) {
             await client.query('ROLLBACK'); // Annuler en cas d'erreur

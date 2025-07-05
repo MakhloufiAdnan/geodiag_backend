@@ -1,147 +1,143 @@
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
+import jwt from 'jsonwebtoken';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 
-// Import des routes et middlewares REST existants
-import userRoutes from './src/routes/userRoutes.js';
+// Logique métier et configuration de l'application
+import { checkDatabaseConnection } from './src/db/checkConnection.js';
+import { typeDefs } from './src/graphql/typeDefs.js';
+import { resolvers } from './src/graphql/resolvers.js';
+
+// Middlewares
 import { errorHandler } from './src/middleware/errorHandler.js';
 
-// Import des services qui contiennent la logique métier
-// Ils seront réutilisés par les résolveurs GraphQL
-import userService from './src/services/userService.js';
+// Routes REST
+import userRoutes from './src/routes/userRoutes.js';
+import companyRoutes from './src/routes/companyRoutes.js';
+import vehicleRoutes from './src/routes/vehicleRoutes.js';
+import registrationRoutes from './src/routes/registrationRoutes.js';
+import authRoutes from './src/routes/authRoutes.js';
 
-// --- CONFIGURATION APOLLO SERVER v4 ---
+// ========================================================================
+// ==                    DÉMARRAGE DU SERVEUR                            ==
+// ========================================================================
 
-// 1. Définir le schéma GraphQL (le "contrat" de l'API)
-// Ce schéma est basé sur votre DTO, vos services et votre base de données.
-const typeDefs = `#graphql
-  # Le type User, basé sur votre UserDto
-  type User {
-    userId: ID!
-    email: String!
-    firstName: String
-    lastName: String
-    role: String
-    isActive: Boolean
-  }
-
-  # Le type pour le retour de la connexion
-  type AuthPayload {
-    token: String!
-    user: User!
-  }
-
-  # Le type pour les métadonnées de pagination
-  type Meta {
-    totalItems: Int!
-    totalPages: Int!
-    currentPage: Int!
-    pageSize: Int!
-  }
-
-  # Le type pour la réponse paginée
-  type PaginatedUsers {
-    data: [User]!
-    meta: Meta!
-  }
-
-  # Les "inputs" pour les mutations, basés sur vos validateurs Joi
-  input CreateUserInput {
-    company_id: ID!
-    email: String!
-    password: String!
-    first_name: String!
-    last_name: String!
-    role: String!
-  }
-
-  input UpdateUserInput {
-    first_name: String
-    last_name: String
-    email: String
-    role: String
-    is_active: Boolean
-  }
-
-  # Les requêtes de LECTURE disponibles
-  type Query {
-    users(page: Int, limit: Int): PaginatedUsers
-    user(id: ID!): User
-  }
-
-  # Les requêtes d'ÉCRITURE disponibles
-  type Mutation {
-    login(email: String!, password: String!): AuthPayload!
-    createUser(input: CreateUserInput!): User!
-    updateUser(id: ID!, input: UpdateUserInput!): User
-    deleteUser(id: ID!): User
-  }
-`;
-
-// 2. Définir les résolveurs (la "logique" de l'API)
-// Chaque fonction ici appelle directement votre service existant.
-const resolvers = {
-  Query: {
-    users: (parent, args) => {
-      const page = args.page || 1;
-      const limit = args.limit || 10;
-      return userService.getAllUsers(page, limit);
-    },
-    user: (parent, { id }) => userService.getUserById(id),
-  },
-  Mutation: {
-    login: (parent, { email, password }) => userService.loginUser(email, password),
-    createUser: (parent, { input }) => userService.createUser(input),
-    updateUser: (parent, { id, input }) => userService.updateUser(id, input),
-    deleteUser: (parent, { id }) => userService.deleteUser(id),
-  },
-};
-
-// --- CONFIGURATION DU SERVEUR EXPRESS + APOLLO ---
-
+/**
+ * Fonction principale qui initialise et démarre le serveur.
+ * Elle est asynchrone pour gérer les démarrages de services (DB, Apollo).
+ */
 async function startServer() {
-  const app = express();
-  const httpServer = http.createServer(app);
+  try {
 
-  // Création de l'instance ApolloServer avec le schéma et les résolveurs
-  const apolloServer = new ApolloServer({
-    typeDefs,
-    resolvers,
-  });
+    // --------------------------------------------------------------------
+    // -- ÉTAPE 1 : VÉRIFICATION DES DÉPENDANCES (APPROCHE FAIL-FAST)    --
+    // --------------------------------------------------------------------
+    // Vérifie la connexion à la base de données AVANT de démarrer
+    // le serveur web. Si cela échoue, l'application s'arrête immédiatement.
+    await checkDatabaseConnection();
 
-  // Démarrage du serveur Apollo (étape obligatoire)
-  await apolloServer.start();
+    // --------------------------------------------------------------------
+    // -- ÉTAPE 2 : INITIALISATION DES SERVEURS (EXPRESS & APOLLO)       --
+    // --------------------------------------------------------------------
+    const app = express();
+    const httpServer = http.createServer(app);
 
-  // Middlewares Express
-  app.use(cors()); // Active CORS pour toutes les routes
-  app.use(express.json()); // Pour parser les corps de requête JSON
+    const apolloServer = new ApolloServer({
+      typeDefs,
+      resolvers,
+    });
 
-  // Route pour le "Health Check"
-  app.get('/', (req, res) => {
-    res.status(200).send('API Geodiag is running with REST and GraphQL. 🎉');
-  });
+    // Le démarrage du serveur Apollo est asynchrone et doit être attendu.
+    await apolloServer.start();
 
-  // 1. Déclarer les routes REST existantes
-  app.use('/api', userRoutes);
+    // --------------------------------------------------------------------
+    // -- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS                --
+    // --------------------------------------------------------------------
+    // L'ordre des middlewares est important.
 
-  // 2. Déclarer le nouveau point d'entrée GraphQL sur /graphql
-  app.use('/graphql', expressMiddleware(apolloServer, {
-    // Le contexte permet de passer des informations (comme le token)
-    // à tous les résolveurs.
-    context: async ({ req }) => ({ token: req.headers.authorization }),
-  }));
+    // Active CORS pour autoriser les requêtes cross-domaine.
+    app.use(cors());
 
-  // 3. Déclarer le gestionnaire d'erreurs (doit être après les routes)
-  app.use(errorHandler);
+    // Parse les corps de requête au format JSON.
+    app.use(express.json());
 
-  // 4. Démarrer le serveur HTTP
-  const PORT = process.env.PORT || 4000;
-  await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
+    // --------------------------------------------------------------------
+    // -- ÉTAPE 4 : DÉFINITION DES ROUTES                                --
+    // --------------------------------------------------------------------
 
-  console.log(`🚀 Server ready at http://localhost:${PORT}`);
-  console.log(`🚀 GraphQL endpoint ready at http://localhost:${PORT}/graphql`);
+    // Route de "Health Check" pour vérifier que le service est en ligne.
+    app.get('/', (req, res) => {
+      res.status(200).send('API Geodiag is running with REST and GraphQL. 🎉');
+    });
+
+    // Enregistrement de toutes les routes REST sous le préfixe /api
+    app.use('/api', userRoutes);
+    app.use('/api', companyRoutes);
+    app.use('/api', vehicleRoutes);
+    app.use('/api', registrationRoutes);
+    app.use('/api', authRoutes);
+
+    // Enregistrement du point d'entrée GraphQL sur /graphql
+    app.use('/graphql', expressMiddleware(apolloServer, {
+      context: async ({ req }) => {
+
+        // 1. Extraire le token des en-têtes
+        const authHeader = req.headers.authorization || '';
+        if (!authHeader.startsWith('Bearer ')) {
+
+            // Si pas de token, renvoie un contexte sans utilisateur
+            return {};
+        }
+
+        const token = authHeader.substring(7);
+
+        try {
+
+            // 2. Vérifier le token et extraire le payload de l'utilisateur
+            const userPayload = jwt.verify(token, process.env.JWT_SECRET);
+
+            // 3. Renvoyer le payload dans le contexte pour qu'il soit
+            // accessible à tous les résolveurs via `context.user`
+            return { user: userPayload };
+        } catch (error) {
+
+            // En cas de token invalide ou expiré, on renvoie un contexte sans utilisateur
+            console.error('Erreur de validation du token GraphQL:', error.message);
+            return {};
+        }
+      },
+    }));
+
+    // --------------------------------------------------------------------
+    // -- ÉTAPE 5 : GESTION DES ERREURS                                  --
+    // --------------------------------------------------------------------
+    // Le gestionnaire d'erreurs doit TOUJOURS être le dernier middleware
+    // enregistré pour attraper les erreurs de toutes les routes précédentes.
+    app.use(errorHandler);
+
+    // --------------------------------------------------------------------
+    // -- ÉTAPE 6 : LANCEMENT DU SERVEUR                                 --
+    // --------------------------------------------------------------------
+    const PORT = process.env.PORT || 4000;
+    await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
+
+    console.log(`🚀 Serveur prêt sur http://localhost:${PORT}`);
+    console.log(`✨ Endpoint GraphQL prêt sur http://localhost:${PORT}/graphql`);
+
+  } catch (error) {
+
+    // Si une erreur critique se produit au démarrage (ex: échec de la connexion DB),
+    // affichage et on arrête l'application.
+    console.error("🔥 Échec critique du démarrage du serveur. L'application va s'arrêter.");
+    console.error(error);
+    
+    // process.exit(1) signale que le processus s'est terminé avec une erreur.
+    // C'est ce qui fera échouer le déploiement sur Render ou le conteneur Docker.
+    process.exit(1);
+  }
 }
 
+// Lancement de l'application.
 startServer();
