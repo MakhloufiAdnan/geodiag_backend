@@ -24,9 +24,9 @@ class UserRepository {
         return rows[0];
     }
 
-    async create(userData) {
+    async create(userData, dbClient = db) { // Accepte un client optionnel
         const { company_id, email, password_hash, first_name, last_name, role } = userData;
-        const { rows } = await db.query(
+        const { rows } = await dbClient.query( // Utilise le client ou la connexion par défaut
             `INSERT INTO users (company_id, email, password_hash, first_name, last_name, role)
                 VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING *`,

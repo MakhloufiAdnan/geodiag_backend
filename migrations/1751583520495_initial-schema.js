@@ -287,4 +287,72 @@ export const up = (pgm) => {
  * @param run {() => void | undefined}
  * @returns {Promise<void> | void}
  */
-export const down = (pgm) => {};
+export const down = (pgm) => {
+    pgm.sql(`
+    -- ########## 6. SUPPRESSION DES INDEX ##########
+    DROP INDEX IF EXISTS idx_users_email;
+    DROP INDEX IF EXISTS idx_licenses_qr_code;
+    DROP INDEX IF EXISTS idx_licenses_status;
+    DROP INDEX IF EXISTS idx_vehicles_registration;
+    DROP INDEX IF EXISTS idx_vehicles_vin;
+    DROP INDEX IF EXISTS idx_measurement_reports_vehicle_id;
+    DROP INDEX IF EXISTS idx_measurement_reports_user_id;
+    DROP INDEX IF EXISTS idx_users_company_id;
+    DROP INDEX IF EXISTS idx_models_brand_id;
+    DROP INDEX IF EXISTS idx_orders_company_id;
+    DROP INDEX IF EXISTS idx_payments_order_id;
+    DROP INDEX IF EXISTS idx_support_tickets_company_id;
+    DROP INDEX IF EXISTS idx_ticket_messages_ticket_id;
+    DROP INDEX IF EXISTS idx_refresh_tokens_user_id;
+    DROP INDEX IF EXISTS idx_measurement_values_definition_id;
+    DROP INDEX IF EXISTS idx_interpretation_rules_definition_id;
+
+    -- ########## 5. SUPPRESSION DES TABLES (ORDRE INVERSE DE CRÉATION) ##########
+
+    -- Tables pour la gestion Offline-First
+    DROP TABLE IF EXISTS offline_data_cache;
+    
+    -- Tables pour le site web (Support, Contact)
+    DROP TABLE IF EXISTS ticket_messages;
+    DROP TABLE IF EXISTS support_tickets;
+    DROP TABLE IF EXISTS contact_submissions;
+    
+    -- Tables de données (Véhicules & Mesures)
+    DROP TABLE IF EXISTS interpretation_rules;
+    DROP TABLE IF EXISTS vehicle_images;
+    DROP TABLE IF EXISTS measurement_values;
+    DROP TABLE IF EXISTS measurement_definitions;
+    DROP TABLE IF EXISTS measurement_reports;
+    DROP TABLE IF EXISTS vehicles;
+    DROP TABLE IF EXISTS models;
+    DROP TABLE IF EXISTS manufacturer_data;
+    DROP TABLE IF EXISTS brands;
+
+    -- Table pour la gestion des sessions
+    DROP TABLE IF EXISTS refresh_tokens;
+
+    -- Tables principales (Coeur de l'application)
+    DROP TABLE IF EXISTS licenses;
+    DROP TABLE IF EXISTS payments;
+    DROP TABLE IF EXISTS orders;
+    DROP TABLE IF EXISTS offers;
+    DROP TABLE IF EXISTS users;
+    DROP TABLE IF EXISTS companies;
+
+    -- ########## 2. SUPPRESSION DES TYPES ENUMÉRÉS ##########
+    DROP TYPE IF EXISTS vehicle_image_category;
+    DROP TYPE IF EXISTS payment_method;
+    DROP TYPE IF EXISTS submission_status;
+    DROP TYPE IF EXISTS measurement_value_status;
+    DROP TYPE IF EXISTS energy_type;
+    DROP TYPE IF EXISTS ticket_priority;
+    DROP TYPE IF EXISTS ticket_status;
+    DROP TYPE IF EXISTS order_status;
+    DROP TYPE IF EXISTS payment_status;
+    DROP TYPE IF EXISTS license_status;
+    DROP TYPE IF EXISTS user_role;
+
+    -- ########## 1. SUPPRESSION DE LA FONCTION TRIGGER ##########
+    DROP FUNCTION IF EXISTS trigger_set_timestamp();
+    `);
+};

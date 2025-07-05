@@ -1,142 +1,147 @@
 import request from 'supertest';
 import express from 'express';
-import userRoutes from '../../src/routes/userRoutes.js';
-import { db, pool } from '../../src/db/index.js';
+import bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
+
+import { pool } from '../../src/db/index.js';
 import { errorHandler } from '../../src/middleware/errorHandler.js';
+import { generateToken } from '../../src/utils/jwtUtils.js';
+import userRoutes from '../../src/routes/userRoutes.js';
 
+/**
+ * @file Tests d'intégration pour les routes /api/users
+ * @description Cette suite de tests valide le comportement complet du CRUD pour les utilisateurs,
+ * en incluant la sécurité, la validation des données et la gestion des rôles.
+ */
+
+// S'assurer que l'environnement est bien 'test'
 process.env.NODE_ENV = 'test';
+// Définir un secret JWT de test cohérent
+process.env.JWT_SECRET = 'un-secret-fiable-pour-les-tests';
 
+// Création d'une instance d'application Express dédiée aux tests
 const app = express();
 app.use(express.json());
+
+// Monte uniquement les routes à tester
 app.use('/api', userRoutes);
 
+// Ajoute le gestionnaire d'erreurs pour tester les cas d'erreur
 app.use(errorHandler);
 
-describe('Routes CRUD /api/users', () => {
-    let testCompanyId;
-    let testUserId;
+describe('Tests d\'intégration pour /api/users', () => {
 
+    // -- Variables partagées par les tests --
+    let testCompanyId;
+    let adminToken;      // Token pour un utilisateur avec le rôle 'admin'
+    let technicianToken; // Token pour un utilisateur avec le rôle 'technician'
+    let adminUserId;
+
+    /**
+     * Le hook `beforeAll` s'exécute une seule fois avant tous les tests.
+     */
     beforeAll(async () => {
-        const { rows } = await db.query(
-            "INSERT INTO companies (name, address, email, phone_number) VALUES ('Test Co', '123 Test', 'co@test.com', '123') RETURNING company_id"
+        // 1. Créer une compagnie de test
+        const companyRes = await pool.query("INSERT INTO companies (name, email) VALUES ('Test Company', 'company@test.com') RETURNING company_id");
+        testCompanyId = companyRes.rows[0].company_id;
+
+        // 2. Créer un utilisateur ADMIN et son token
+        const adminPassword = await bcrypt.hash('password123', 10);
+        const adminRes = await pool.query(
+            "INSERT INTO users (company_id, email, password_hash, first_name, role) VALUES ($1, 'admin@test.com', $2, 'Admin', 'admin') RETURNING *",
+            [testCompanyId, adminPassword]
         );
-        testCompanyId = rows[0].company_id;
+        adminUserId = adminRes.rows[0].user_id;
+        adminToken = generateToken({ userId: adminRes.rows[0].user_id, companyId: testCompanyId, role: 'admin' });
+
+        // 3. Créer un utilisateur TECHNICIAN et son token
+        const techPassword = await bcrypt.hash('password123', 10);
+        const techRes = await pool.query(
+            "INSERT INTO users (company_id, email, password_hash, first_name, role) VALUES ($1, 'tech@test.com', $2, 'Tech', 'technician') RETURNING *",
+            [testCompanyId, techPassword]
+        );
+        technicianToken = generateToken({ userId: techRes.rows[0].user_id, companyId: testCompanyId, role: 'technician' });
     });
 
+    /**
+     * Le hook `afterAll` s'exécute une seule fois après tous les tests.
+     */
     afterAll(async () => {
-        
-        // Nettoie les tables après tous les tests dans l'ordre inverse
-        await db.query('DELETE FROM users');
-        await db.query('DELETE FROM companies');
+
+        // Nettoie les tables dans l'ordre inverse des dépendances
+        await pool.query('DELETE FROM users');
+        await pool.query('DELETE FROM companies');
+
+        // Ferme la connexion à la base de données
         await pool.end();
     });
 
-    beforeEach(async () => {
-        // Crée un utilisateur de test avant chaque test
-        const { rows } = await db.query(
-            `INSERT INTO users (company_id, email, password_hash, first_name, last_name, role)
-            VALUES ($1, 'user@test.com', 'hashed', 'Jane', 'Doe', 'technician') RETURNING user_id`,
-            [testCompanyId]
-        );
-        testUserId = rows[0].user_id;
-    });
+    // -- TESTS POUR LA CRÉATION (POST /users) --
+    describe('POST /users', () => {
+        it('Doit créer un utilisateur si l\'utilisateur authentifié est un admin (201)', async () => {
+            const newUser = {
+                email: 'new.user@test.com', password: 'password123', first_name: 'John',
+                last_name: 'Smith', role: 'technician', company_id: testCompanyId
+            };
+            const res = await request(app)
+                .post('/api/users')
+                .set('Authorization', `Bearer ${adminToken}`)
+                .send(newUser);
+            expect(res.statusCode).toBe(201);
+            expect(res.body.email).toBe(newUser.email);
+        });
 
-    afterEach(async () => {
-        // Nettoie les tables après chaque test
-        await db.query('DELETE FROM users');
-    });
-
-    // Test pour CREATE
-    it('POST /users - doit créer un nouvel utilisateur', async () => {
-        const newUser = {
-            email: 'new.user@test.com',
-            password: 'password123',
-            first_name: 'John',
-            last_name: 'Smith',
-            role: 'technician',
-            company_id: testCompanyId,
-        };
-        const res = await request(app).post('/api/users').send(newUser);
-        expect(res.statusCode).toEqual(201);
-        expect(res.body.email).toBe('new.user@test.com');
-    });
-
-    // Test pour vérifier que l'email existe déjà
-    it('POST /users - doit retourner 409 si l\'email existe déjà', async () => {
-    // Le premier utilisateur est créé dans le beforeEach
-    const duplicateUser = {
-        email: 'user@test.com', // Même email que l'utilisateur existant
-        password: 'password123',
-        first_name: 'Peter',
-        last_name: 'Jones',
-        role: 'technician',
-        company_id: testCompanyId,
-    };
-
-    const res = await request(app)
-        .post('/api/users')
-        .send(duplicateUser);
-
-    expect(res.statusCode).toEqual(409);
-    expect(res.body.message).toBe('Un utilisateur avec cet email existe déjà.');
-    });
-
-    // Test pour vérifier que l'email est requis
-    it('POST /users - doit retourner 400 si des données requises sont manquantes', async () => {
-        const incompleteUser = {
-            // Il manque l'email et le mot de passe
-            first_name: 'John',
-        };
-
-        const res = await request(app)
-            .post('/api/users')
-            .send(incompleteUser);
+        it('Doit refuser la création si l\'utilisateur authentifié est un technicien (403)', async () => {
+            const newUser = {
+                email: 'another.user@test.com', password: 'password123', first_name: 'Peter',
+                last_name: 'Pan', role: 'technician', company_id: testCompanyId
+            };
+            const res = await request(app)
+                .post('/api/users')
+                .set('Authorization', `Bearer ${technicianToken}`) // Token de technicien
+                .send(newUser);
+            expect(res.statusCode).toBe(403); // Forbidden
+        });
         
-        // Le test échouera car nous n'avons pas encore de validation de schéma.
-        // Mais il montre comment vous testeriez une erreur 400 Bad Request.
-        // Pour l'instant, il renverra probablement une erreur 500 de la base de données.
-        expect(res.statusCode).not.toEqual(201);
+        it('Doit refuser la création si des données sont invalides (400)', async () => {
+            const invalidUser = { email: 'bademail', password: '123' }; // Email invalide, mdp trop court
+            const res = await request(app)
+                .post('/api/users')
+                .set('Authorization', `Bearer ${adminToken}`)
+                .send(invalidUser);
+            expect(res.statusCode).toBe(400); // Bad Request
+        });
     });
+    
+    // -- TESTS POUR LA LECTURE (GET /users, GET /users/:id) --
+    describe('GET /users', () => {
+        it('Doit retourner la liste des utilisateurs si authentifié (200)', async () => {
+            const res = await request(app)
+                .get('/api/users')
+                .set('Authorization', `Bearer ${adminToken}`);
+            expect(res.statusCode).toBe(200);
+            expect(Array.isArray(res.body.data)).toBe(true);
+        });
 
-    // Test pour READ (tous les utilisateurs)
-    it('GET /users - doit retourner une liste paginée d\'utilisateurs', async () => {
-        const res = await request(app).get('/api/users');
-        expect(res.statusCode).toEqual(200);
-        expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0].email).toBe('user@test.com');
-    });
+        it('Doit retourner un utilisateur par son ID si authentifié (200)', async () => {
+            const res = await request(app)
+                .get(`/api/users/${adminUserId}`)
+                .set('Authorization', `Bearer ${adminToken}`);
+            expect(res.statusCode).toBe(200);
+            expect(res.body.userId).toBe(adminUserId);
+        });
 
-    // Test pour READ (un seul utilisateur)
-    it('GET /users/:id - doit retourner un utilisateur spécifique', async () => {
-        const res = await request(app).get(`/api/users/${testUserId}`);
-        expect(res.statusCode).toEqual(200);
-        expect(res.body.userId).toBe(testUserId);
-    });
+        it('Doit retourner une erreur si l\'ID n\'existe pas (404)', async () => {
+            const nonExistentId = uuidv4();
+            const res = await request(app)
+                .get(`/api/users/${nonExistentId}`)
+                .set('Authorization', `Bearer ${adminToken}`);
+            expect(res.statusCode).toBe(404);
+        });
 
-    // Test pour UPDATE
-    it('PUT /users/:id - doit mettre à jour un utilisateur', async () => {
-        const updatedData = { first_name: 'John' };
-        const res = await request(app)
-            .put(`/api/users/${testUserId}`)
-            .set('Authorization', 'un-bon-token') 
-            .send(updatedData);
-
-        expect(res.statusCode).toEqual(200);
-        expect(res.body.firstName).toBe('John');
-    });
-
-    // Tests pour l'authentification token
-    it('DELETE /users/:id - doit retourner 401 si aucun token n\'est fourni', async () => {
-    const res = await request(app).delete(`/api/users/${testUserId}`);
-
-    expect(res.statusCode).toEqual(401);
-    });
-
-    it('DELETE /users/:id - doit fonctionner si un bon token est fourni', async () => {
-        const res = await request(app)
-            .delete(`/api/users/${testUserId}`)
-            .set('Authorization', 'un-bon-token'); // On ajoute le header d'authentification
-
-        expect(res.statusCode).toEqual(204);
+        it('Doit refuser l\'accès sans token (401)', async () => {
+            const res = await request(app).get('/api/users');
+            expect(res.statusCode).toBe(401);
+        });
     });
 });

@@ -1,11 +1,26 @@
 import userRepository from '../repositories/userRepository.js';
 import bcrypt from 'bcrypt';
-import { generateToken } from '../utils/jwtUtils.js';
 
 class UserService {
-    async getAllUsers(page, limit) {
+
+    /**
+     * Vérifie si l'utilisateur a les droits d'administrateur.
+     * @param {object} authenticatedUser - L'utilisateur extrait du token JWT.
+     */
+    #ensureIsAdmin(authenticatedUser) {
+        if (!authenticatedUser || authenticatedUser.role !== 'admin') {
+            const error = new Error('Accès refusé. Droits administrateur requis.');
+            error.statusCode = 403; // 403 Forbidden
+            throw error;
+        }
+    }
+
+    async getAllUsers(page, limit, authenticatedUser) {
+
+        // Seul un admin peut voir la liste de tous les utilisateurs.
+        this.#ensureIsAdmin(authenticatedUser);
+
         const offset = (page - 1) * limit;
-        
         const [users, totalItems] = await Promise.all([
             userRepository.findAll(limit, offset),
             userRepository.countAll()
@@ -22,36 +37,48 @@ class UserService {
         };
     }
 
-    async getUserById(id) {
+    async getUserById(id, authenticatedUser) {
+
+        // Un admin peut voir n'importe quel utilisateur.
+        // Un utilisateur normal ne peut voir que son propre profil.
+        if (authenticatedUser.role !== 'admin' && authenticatedUser.userId !== id) {
+            const error = new Error('Accès refusé.');
+            error.statusCode = 403;
+            throw error;
+        }
         return userRepository.findById(id);
     }
 
-    async createUser(userData) {
-        // 1. Validation : l'email doit être unique.
+    async createUser(userData, authenticatedUser) {
+
+        // Seul un admin peut créer un nouvel utilisateur.
+        this.#ensureIsAdmin(authenticatedUser);
+
         const existingUser = await userRepository.findByEmail(userData.email);
         if (existingUser) {
             const error = new Error('Un utilisateur avec cet email existe déjà.');
-            error.statusCode = 409; // HTTP 409 Conflict
+            error.statusCode = 409;
             throw error;
         }
 
-        // 2. Hachage du mot de passe avant sauvegarde.
         const saltRounds = 10;
         const password_hash = await bcrypt.hash(userData.password, saltRounds);
-
-        // 3. Préparation des données pour la création.
-        // Le company_id doit être fourni par le contrôleur (depuis le token de l'admin).
-        const newUser = {
-            ...userData,
-            password_hash,
-        };
-        delete newUser.password; 
+        const newUser = { ...userData, password_hash };
+        delete newUser.password;
 
         return userRepository.create(newUser);
     }
 
-    async updateUser(id, userData) {
-        // Validation : si l'email est changé, il doit rester unique.
+    async updateUser(id, userData, authenticatedUser) {
+
+        // Un admin peut mettre à jour n'importe qui.
+        // Un utilisateur normal ne peut mettre à jour que son propre profil.
+        if (authenticatedUser.role !== 'admin' && authenticatedUser.userId !== id) {
+            const error = new Error('Accès refusé.');
+            error.statusCode = 403;
+            throw error;
+        }
+
         if (userData.email) {
             const existingUser = await userRepository.findByEmail(userData.email);
             if (existingUser && existingUser.user_id !== id) {
@@ -64,26 +91,11 @@ class UserService {
         return userRepository.update(id, userData);
     }
 
-    async deleteUser(id) {
+    async deleteUser(id, authenticatedUser) {
+        
+        // Seul un admin peut supprimer un utilisateur.
+        this.#ensureIsAdmin(authenticatedUser);
         return userRepository.delete(id);
-    }
-
-    async loginUser(email, password) {
-        // 1. Trouver l'utilisateur par email
-        const user = await userRepository.findByEmail(email);
-        if (!user) {
-            throw new Error('Identifiants invalides');
-        }
-
-        // 2. Vérifier le mot de passe
-        const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) {
-            throw new Error('Identifiants invalides');
-        }
-
-        // 3. Si tout est bon, générer et retourner le token
-        const token = generateToken(user.user_id);
-        return { token, user: new UserDto(user) }; // Retourne le token et les infos utilisateur
     }
 }
 
