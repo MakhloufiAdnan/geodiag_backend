@@ -19,6 +19,7 @@ import companyRoutes from './src/routes/companyRoutes.js';
 import vehicleRoutes from './src/routes/vehicleRoutes.js';
 import registrationRoutes from './src/routes/registrationRoutes.js';
 import authRoutes from './src/routes/authRoutes.js';
+import paymentWebhookRoutes from './src/routes/paymentWebhookRoutes.js';
 
 // ========================================================================
 // ==                    DÉMARRAGE DU SERVEUR                            ==
@@ -60,9 +61,6 @@ async function startServer() {
     // Active CORS pour autoriser les requêtes cross-domaine.
     app.use(cors());
 
-    // Parse les corps de requête au format JSON.
-    app.use(express.json());
-
     // --------------------------------------------------------------------
     // -- ÉTAPE 4 : DÉFINITION DES ROUTES                                --
     // --------------------------------------------------------------------
@@ -72,14 +70,21 @@ async function startServer() {
       res.status(200).send('API Geodiag is running with REST and GraphQL. 🎉');
     });
 
-    // Enregistrement de toutes les routes REST sous le préfixe /api
+    // 1. Enregistrer la route du webhook AVANT le parser JSON global.
+    // Le fichier de route lui-même appliquera le parser `express.raw`.
+    app.use('/api', paymentWebhookRoutes);
+
+    // 2. Appliquer le parser JSON pour toutes les autres routes.
+    app.use(express.json());
+
+    // 3. Enregistrement de toutes les routes REST sous le préfixe /api
     app.use('/api', userRoutes);
     app.use('/api', companyRoutes);
     app.use('/api', vehicleRoutes);
     app.use('/api', registrationRoutes);
     app.use('/api', authRoutes);
 
-    // Enregistrement du point d'entrée GraphQL sur /graphql
+    // 4. Enregistrement du point d'entrée GraphQL sur /graphql
     app.use('/graphql', expressMiddleware(apolloServer, {
       context: async ({ req }) => {
 
@@ -90,9 +95,7 @@ async function startServer() {
             // Si pas de token, renvoie un contexte sans utilisateur
             return {};
         }
-
         const token = authHeader.substring(7);
-
         try {
 
             // 2. Vérifier le token et extraire le payload de l'utilisateur

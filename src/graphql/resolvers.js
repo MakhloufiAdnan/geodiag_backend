@@ -1,60 +1,85 @@
 import userService from '../services/userService.js';
 import companyService from '../services/companyService.js';
 import authService from '../services/authService.js';
+import offerService from '../services/offerService.js';
+import orderService from '../services/orderService.js';
+import paymentService from '../services/paymentService.js';
+import licenseRepository from '../repositories/licenseRepository.js';
+import orderRepository from '../repositories/orderRepository.js';
+import offerRepository from '../repositories/offerRepository.js';
 import { GraphQLError } from 'graphql';
 
+// Helper pour vérifier si l'utilisateur est un admin authentifié
+const ensureAdmin = (user) => {
+    if (!user || user.role !== 'admin') {
+        throw new GraphQLError('Accès refusé. Vous devez être un administrateur.', {
+            extensions: { code: 'FORBIDDEN' },
+        });
+    }
+};
+
 export const resolvers = {
+    // --- RÉSOLVEURS POUR LES QUERIES ---
     Query: {
-        // Résolveurs (user, company, me) ...
-        user: async (_, { id }) => {
-        return userService.getUserById(id);
+        offers: async (_, __, context) => {
+            ensureAdmin(context.user);
+            return offerService.getAllOffers(context.user);
         },
-        company: async (_, { id }) => {
-        return companyService.getCompanyById(id);
+        order: async (_, { id }, context) => {
+            ensureAdmin(context.user);
+            const order = await orderRepository.findById(id);
+            if (!order || order.company_id !== context.user.companyId) {
+                throw new GraphQLError('Commande non trouvée ou accès non autorisé.', { extensions: { code: 'NOT_FOUND' } });
+            }
+            return order;
+        },
+        myActiveLicense: async (_, __, context) => {
+            ensureAdmin(context.user);
+            return licenseRepository.findActiveByCompanyId(context.user.companyId);
         },
         me: async (_, __, context) => {
             if (!context.user) {
                 throw new GraphQLError('Non authentifié.', { extensions: { code: 'UNAUTHENTICATED' } });
             }
-            return userService.getUserById(context.user.userId);
+            return userService.getUserById(context.user.userId, context.user);
         },
-
-        // RÉSOLVEUR 'users' 
         users: async (_, { page, limit }, context) => {
-        if (!context.user) {
-            throw new GraphQLError('Vous devez être authentifié pour effectuer cette action.', {
-            extensions: { code: 'UNAUTHENTICATED' },
-            });
-        }
-        
-        // Renvoie l'objet de pagination complet
-        return userService.getAllUsers(page, limit);
+            ensureAdmin(context.user);
+            // Le service renvoie déjà l'objet complet { data, meta } qui correspond au type PaginatedUsers
+            return userService.getAllUsers(page, limit, context.user);
         },
     },
 
+    // --- RÉSOLVEURS POUR LES MUTATIONS ---
     Mutation: {
-        // Résolveurs de mutation 
-        loginCompanyAdmin: async (_, { email, password }) => {
-        return authService.loginCompanyAdmin(email, password);
+        // Authentification
+        loginCompanyAdmin: (_, { email, password }) => authService.loginCompanyAdmin(email, password),
+        loginTechnician: (_, { email, password }) => authService.loginTechnician(email, password),
+
+        // Flux d'achat
+        createOrder: (_, { offerId }, context) => {
+            ensureAdmin(context.user);
+            return orderService.createOrder(offerId, context.user);
         },
-        loginTechnician: async (_, { email, password }) => {
-        return authService.loginTechnician(email, password);
-        },
-        createUser: async (_, { input }, context) => {
-        if (!context.user || context.user.role !== 'admin') {
-            throw new GraphQLError('Seul un administrateur peut créer des utilisateurs.', {
-            extensions: { code: 'FORBIDDEN' },
-            });
+        createCheckoutSession: (_, { orderId }, context) => {
+            ensureAdmin(context.user);
+            return paymentService.createCheckoutSession(orderId, context.user);
         }
-        return userService.createUser(input);
-        },
     },
 
-    User: {
-        // Résolveur de relation
-        company: async (user) => {
-        if (!user.companyId) return null;
-        return companyService.getCompanyById(user.companyId);
-        },
+    // --- RÉSOLVEURS DE RELATIONS (NESTED) ---
+    // Permet de naviguer dans le graphe de données.
+    Order: {
+        offer: (order) => offerRepository.findById(order.offer_id),
+        company: (order) => companyService.getCompanyById(order.company_id, { role: 'admin' }), // Simule un admin pour passer la sécurité
     },
+    License: {
+        order: (license) => orderRepository.findById(license.order_id),
+    },
+    User: {
+        company: (user) => {
+            // Votre DTO doit exposer le companyId pour que cela fonctionne
+            return companyService.getCompanyById(user.companyId, { role: 'admin' });
+        }
+    }
 };

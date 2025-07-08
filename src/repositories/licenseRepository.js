@@ -1,19 +1,24 @@
 import { db } from '../db/index.js';
 
 class LicenseRepository {
+    // La méthode create doit correspondre aux colonnes de la table 'licenses'
+    async create(licenseData, dbClient = db) {
+        const { order_id, company_id, qr_code_payload, status, expires_at } = licenseData;
+        const { rows } = await dbClient.query(
+            `INSERT INTO licenses (order_id, company_id, qr_code_payload, status, expires_at)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [order_id, company_id, qr_code_payload, status, expires_at],
+        );
+        return rows[0];
+    }
+    
+    // Cette méthode est essentielle pour la logique de connexion du technicien
     async findActiveByCompanyId(companyId) {
-        // TODO: Implémenter la vraie logique de requête SQL.
-        // Cette requête doit vérifier que la licence existe, que son statut est 'active'
-        // et que sa date d'expiration (expires_at) n'est pas dans le passé.
-        console.log(`Vérification de la licence pour la compagnie ${companyId}...`);
-        
         const { rows } = await db.query(
             "SELECT * FROM licenses WHERE company_id = $1 AND status = 'active' AND expires_at > NOW()",
             [companyId]
         );
-        
-        return rows[0]; // Retourne la licence si elle est trouvée et active, sinon undefined.
+        return rows[0];
     }
 }
-
 export default new LicenseRepository();
