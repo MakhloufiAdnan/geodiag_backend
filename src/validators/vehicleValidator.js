@@ -1,15 +1,16 @@
 import Joi from 'joi';
 import { validate } from '../middleware/validationMiddleware.js';
 
-// Schéma pour la création d'un véhicule avec messages d'erreur précis.
+/**
+ * @file Définit les schémas de validation pour les routes des véhicules.
+ */
+
 const createVehicleSchema = Joi.object({
     model_id: Joi.string().uuid().required().messages({
         'string.guid': 'L\'ID du modèle doit être un UUID valide.',
         'any.required': 'L\'ID du modèle est obligatoire.'
     }),
-    registration: Joi.string().required().messages({
-        'any.required': 'Le numéro d\'immatriculation est obligatoire.'
-    }),
+    registration: Joi.string().required().messages({ 'any.required': 'Le numéro d\'immatriculation est obligatoire.' }),
     vin: Joi.string().length(17).required().messages({
         'string.length': 'Le VIN doit contenir exactement 17 caractères.',
         'any.required': 'Le VIN est obligatoire.'
@@ -32,13 +33,9 @@ const createVehicleSchema = Joi.object({
     options: Joi.object().optional()
 });
 
-// Schéma pour valider le paramètre d'URL 'registration'.
 const registrationParamSchema = Joi.object({
-    registration: Joi.string().required().messages({
-        'any.required': 'Le paramètre d\'immatriculation est manquant dans l\'URL.'
-    })
+    registration: Joi.string().required().messages({ 'any.required': 'Le paramètre d\'immatriculation est manquant dans l\'URL.' })
 });
 
-// Exportation des middlewares prêts à l'emploi.
 export const validateVehicleCreation = validate(createVehicleSchema);
 export const validateVehicleRegistration = validate(registrationParamSchema, 'params');

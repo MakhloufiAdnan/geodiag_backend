@@ -1,4 +1,8 @@
 export class OrderDto {
+
+    /**
+     * @param {object} order - L'objet commande brut provenant de la base de données.
+     */
     constructor(order) {
         this.orderId = order.order_id;
         this.companyId = order.company_id;

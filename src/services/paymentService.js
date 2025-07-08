@@ -10,7 +10,16 @@ import { LicenseDto } from '../dtos/licenseDto.js';
 
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY);
 
+/**
+ * @file Gère le processus de paiement, de l'initiation à la confirmation.
+ */
 class PaymentService {
+    /**
+     * Crée une session de paiement Stripe pour une commande.
+     * @param {string} orderId - L'ID de la commande à payer.
+     * @param {object} authenticatedUser - L'utilisateur qui initie le paiement.
+     * @returns {Promise<{sessionId: string, url: string}>} L'ID et l'URL de la session de paiement.
+     */
     async createCheckoutSession(orderId, authenticatedUser) {
         if (!authenticatedUser || authenticatedUser.role !== 'admin') {
             const error = new Error('Seul un administrateur peut initier un paiement.');
@@ -47,6 +56,11 @@ class PaymentService {
         return { sessionId: session.id, url: session.url };
     }
 
+    /**
+     * Gère un paiement réussi reçu via un webhook.
+     * @param {object} session - L'objet session de Stripe.
+     * @returns {Promise<{success: boolean, license: LicenseDto}>} Le résultat de l'opération.
+     */
     async handleSuccessfulPayment(session) {
         const orderId = session.metadata.orderId;
         const client = await pool.connect();

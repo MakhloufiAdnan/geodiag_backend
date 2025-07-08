@@ -1,4 +1,8 @@
 export class UserDto {
+
+    /**
+     * @param {object} user - L'objet utilisateur brut provenant de la base de données.
+     */
     constructor(user) {
         this.userId = user.user_id;
         this.companyId = user.company_id; 

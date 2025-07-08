@@ -1,6 +1,12 @@
 import orderService from '../services/orderService.js';
 
+/**
+ * @file Gère les requêtes HTTP pour la création de commandes.
+ */
 class OrderController {
+    /**
+     * Crée une nouvelle commande à partir d'une offre.
+     */
     async createOrder(req, res, next) {
         try {
             const { offerId } = req.body;
@@ -11,4 +17,5 @@ class OrderController {
         }
     }
 }
+
 export default new OrderController();

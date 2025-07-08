@@ -1,4 +1,8 @@
 export class VehicleDto {
+
+    /**
+     * @param {object} vehicle - L'objet véhicule brut provenant de la base de données.
+     */
     constructor(vehicle) {
         this.vehicleId = vehicle.vehicle_id;
         this.modelId = vehicle.model_id;

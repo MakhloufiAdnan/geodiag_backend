@@ -5,11 +5,18 @@ import { pool } from '../db/index.js';
 import { generateToken } from '../utils/jwtUtils.js';
 import { UserDto } from '../dtos/userDto.js'; 
 
+/**
+ * @file Gère le processus d'inscription d'une nouvelle compagnie.
+ */
 class RegistrationService {
+    /**
+     * Inscrit une nouvelle compagnie et son premier administrateur.
+     * @param {object} registrationData - Les données d'inscription.
+     * @returns {Promise<{token: string, user: UserDto, company: object}>} Le token et les objets créés.
+     */
     async registerCompany(registrationData) {
         const { companyData, adminData } = registrationData;
 
-        // Validation pour s'assurer que les emails n'existent pas déjà
         const existingCompany = await companyRepository.findByEmail(companyData.email);
         if (existingCompany) {
             const error = new Error('Une entreprise avec cet email existe déjà.');
@@ -25,16 +32,10 @@ class RegistrationService {
 
         const client = await pool.connect();
         try {
-            await client.query('BEGIN'); // Début de la transaction
-
-            // Créer la compagnie
+            await client.query('BEGIN');
             const newCompany = await companyRepository.create(companyData, client);
-
-            // Hacher le mot de passe de l'admin
             const saltRounds = 10;
             const password_hash = await bcrypt.hash(adminData.password, saltRounds);
-            
-            // Créer l'utilisateur admin associé
             const newAdmin = await userRepository.create({
                 ...adminData,
                 password_hash,
@@ -42,25 +43,16 @@ class RegistrationService {
                 role: 'admin'
             }, client);
 
-            // Générer le token JWT pour le nouvel admin
             const payload = { userId: newAdmin.user_id, companyId: newCompany.company_id, role: newAdmin.role };
             const token = generateToken(payload);
+            await client.query('COMMIT');
 
-            await client.query('COMMIT'); // Valider la transaction
-
-            // 3. Retourner le token avec les informations de l'utilisateur et de la compagnie
-            // L'application frontend pourra utiliser ce token pour connecter l'utilisateur immédiatement.
-            return {
-                token,
-                user: new UserDto(newAdmin),
-                company: newCompany 
-            };
-
+            return { token, user: new UserDto(newAdmin), company: newCompany };
         } catch (e) {
-            await client.query('ROLLBACK'); // Annuler en cas d'erreur
+            await client.query('ROLLBACK');
             throw e;
         } finally {
-            client.release(); // Libérer le client de base de données
+            client.release();
         }
     }
 }

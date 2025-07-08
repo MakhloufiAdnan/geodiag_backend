@@ -1,7 +1,11 @@
 import Joi from 'joi';
 import { validate } from '../middleware/validationMiddleware.js';
 
-// Le schéma est défini ici 
+/**
+ * @file Définit les schémas de validation pour les routes d'authentification.
+ */
+
+// Schéma pour valider les données de connexion (email et mot de passe).
 const loginSchema = Joi.object({
     email: Joi.string().email().required().messages({
         'string.email': `"email" doit être une adresse email valide`,

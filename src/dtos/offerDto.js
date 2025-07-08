@@ -1,4 +1,8 @@
 export class OfferDto {
+
+    /**
+     * @param {object} offer - L'objet offre brut provenant de la base de données.
+     */
     constructor(offer) {
         this.offerId = offer.offer_id;
         this.name = offer.name;

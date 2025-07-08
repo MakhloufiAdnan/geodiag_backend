@@ -1,4 +1,8 @@
 export class LicenseDto {
+
+    /**
+     * @param {object} license - L'objet licence brut provenant de la base de données.
+     */
     constructor(license) {
         this.licenseId = license.license_id;
         this.orderId = license.order_id;

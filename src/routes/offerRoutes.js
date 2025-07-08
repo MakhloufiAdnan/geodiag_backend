@@ -2,7 +2,12 @@ import { Router } from 'express';
 import offerController from '../controllers/offerController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
+/**
+ * @file Définit les routes pour les offres commerciales.
+ */
 const router = Router();
-// Un utilisateur authentifié peut voir les offres disponibles.
+
+// Un utilisateur authentifié (admin) peut voir les offres disponibles.
 router.get('/offers', protect, offerController.getAllOffers);
+
 export default router;

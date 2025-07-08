@@ -1,7 +1,7 @@
 import vehicleService from '../services/vehicleService.js';
 
 /**
- * Gère les requêtes HTTP pour l'entité "Vehicle".
+ * @file Gère les requêtes HTTP pour l'entité "Vehicle".
  */
 class VehicleController {
     /**
@@ -24,8 +24,6 @@ class VehicleController {
 
     /**
      * Crée un nouveau véhicule.
-     * Note : La validation des données d'entrée (req.body) est gérée
-     * en amont par le middleware de validation Joi dans `vehicleRoutes.js`.
      * @param {object} req - L'objet de la requête Express.
      * @param {object} res - L'objet de la réponse Express.
      * @param {function} next - La fonction middleware suivante.
@@ -40,5 +38,4 @@ class VehicleController {
     }
 }
 
-// Exporte une instance unique du contrôleur.
 export default new VehicleController();

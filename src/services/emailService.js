@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * @file Gère l'envoi d'emails transactionnels.
+ */
 class EmailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
@@ -9,6 +12,13 @@ class EmailService {
             auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
         });
     }
+
+    /**
+     * Envoie l'email de confirmation de licence avec la facture.
+     * @param {object} company - L'objet compagnie destinataire.
+     * @param {object} license - L'objet de la licence créée.
+     * @param {Buffer} invoicePdfBuffer - Le buffer contenant le PDF de la facture.
+     */
     async sendLicenseAndInvoice(company, license, invoicePdfBuffer) {
         const mailOptions = {
             from: process.env.EMAIL_FROM,
@@ -25,4 +35,5 @@ class EmailService {
         }
     }
 }
+
 export default new EmailService();

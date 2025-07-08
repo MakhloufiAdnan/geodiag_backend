@@ -1,11 +1,14 @@
 import companyRepository from '../repositories/companyRepository.js';
 import { CompanyDto } from '../dtos/companyDto.js';
 
+/**
+ * @file Gère la logique métier pour les compagnies.
+ */
 class CompanyService {
-
     /**
      * Méthode privée pour s'assurer que l'utilisateur a les droits d'administrateur.
      * @param {object} authenticatedUser - L'utilisateur extrait du token JWT.
+     * @private
      */
     #ensureIsAdmin(authenticatedUser) {
         if (!authenticatedUser || authenticatedUser.role !== 'admin') {
@@ -16,7 +19,9 @@ class CompanyService {
     }
 
     /**
-     * Récupère toutes les compagnies. 
+     * Récupère toutes les compagnies (accessible uniquement aux admins).
+     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
+     * @returns {Promise<Array<CompanyDto>>} Une liste de compagnies.
      */
     async getAllCompanies(authenticatedUser) {
         this.#ensureIsAdmin(authenticatedUser); 
@@ -25,29 +30,15 @@ class CompanyService {
     }
 
     /**
-     * Récupère une compagnie par son ID. 
+     * Récupère une compagnie par son ID (accessible uniquement aux admins).
+     * @param {string} id - L'ID de la compagnie.
+     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
+     * @returns {Promise<CompanyDto|null>} La compagnie ou null si non trouvée.
      */
     async getCompanyById(id, authenticatedUser) {
         this.#ensureIsAdmin(authenticatedUser);
         const company = await companyRepository.findById(id);
         return company ? new CompanyDto(company) : null;
-    }
-
-    /**
-     * Crée une compagnie. 
-     */
-    async createCompany(companyData, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser); 
-
-        const existingCompany = await companyRepository.findByEmail(companyData.email);
-        if (existingCompany) {
-            const error = new Error('Une entreprise avec cet email existe déjà.');
-            error.statusCode = 409; // Conflict
-            throw error;
-        }
-
-        const newCompany = await companyRepository.create(companyData);
-        return new CompanyDto(newCompany);
     }
 }
 

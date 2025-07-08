@@ -3,7 +3,16 @@ import offerService from './offerService.js';
 import { v4 as uuidv4 } from 'uuid';
 import { OrderDto } from '../dtos/orderDto.js';
 
+/**
+ * @file Gère la logique métier pour les commandes.
+ */
 class OrderService {
+    /**
+     * Crée une nouvelle commande pour une compagnie.
+     * @param {string} offerId - L'ID de l'offre choisie.
+     * @param {object} authenticatedUser - L'admin de la compagnie qui passe la commande.
+     * @returns {Promise<OrderDto>} La nouvelle commande créée.
+     */
     async createOrder(offerId, authenticatedUser) {
         if (!authenticatedUser || authenticatedUser.role !== 'admin') {
             const error = new Error('Seul un administrateur de compagnie peut passer une commande.');
@@ -26,4 +35,5 @@ class OrderService {
         return new OrderDto(newOrder);
     }
 }
+
 export default new OrderService();

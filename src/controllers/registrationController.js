@@ -1,15 +1,12 @@
 import registrationService from '../services/registrationService.js';
 
 /**
- * Gère la requête HTTP pour l'inscription d'une nouvelle compagnie.
+ * @file Gère la requête HTTP pour l'inscription d'une nouvelle compagnie.
  */
 class RegistrationController {
     
     /**
-     * Gère la création d'une nouvelle compagnie et de son utilisateur admin.
-     * Note : La validation des données d'entrée (req.body) est gérée
-     * en amont par le middleware de validation Joi dans le fichier de routes
-     * (`registrationRoutes.js`).
+     * Gère la création d'une compagnie et de son utilisateur admin.
      * @param {object} req - L'objet de la requête Express.
      * @param {object} res - L'objet de la réponse Express.
      * @param {function} next - La fonction middleware suivante.
@@ -28,5 +25,4 @@ class RegistrationController {
     }
 }
 
-// Exporte une instance unique du contrôleur.
 export default new RegistrationController();

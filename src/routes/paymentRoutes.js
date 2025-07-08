@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import paymentController from '../controllers/paymentController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { validate } from '../middleware/validationMiddleware.js';
-import { createCheckoutSchema } from '../validators/paymentValidator.js';
+import { validateCheckoutCreation } from '../validators/paymentValidator.js';
 
+/**
+ * @file Définit la route pour initier un paiement.
+ */
 const router = Router();
-router.post('/payments/create-checkout-session', protect, validate(createCheckoutSchema), paymentController.createCheckoutSession);
+
+// Un admin authentifié peut créer une session de paiement pour une commande.
+router.post('/payments/create-checkout-session', protect, validateCheckoutCreation, paymentController.createCheckoutSession);
+
 export default router;

@@ -1,6 +1,10 @@
 import Joi from 'joi';
 import { validate } from '../middleware/validationMiddleware.js';
 
+/**
+ * @file Définit les schémas de validation pour les routes des utilisateurs.
+ */
+
 const createUserSchema = Joi.object({
     email: Joi.string().email().required().messages({
         'string.email': 'L\'email doit être une adresse valide.',
@@ -10,12 +14,8 @@ const createUserSchema = Joi.object({
         'string.min': 'Le mot de passe doit contenir au moins 8 caractères.',
         'any.required': 'Le mot de passe est obligatoire.'
     }),
-    first_name: Joi.string().required().messages({
-        'any.required': 'Le prénom est obligatoire.'
-    }),
-    last_name: Joi.string().required().messages({
-        'any.required': 'Le nom de famille est obligatoire.'
-    }),
+    first_name: Joi.string().required().messages({ 'any.required': 'Le prénom est obligatoire.' }),
+    last_name: Joi.string().required().messages({ 'any.required': 'Le nom de famille est obligatoire.' }),
     role: Joi.string().valid('admin', 'technician').required().messages({
         'any.only': 'Le rôle doit être "admin" ou "technician".',
         'any.required': 'Le rôle est obligatoire.'
@@ -32,6 +32,6 @@ const uuidSchema = Joi.object({
     })
 });
 
-// Exporter les middlewares prêts à l'emploi
+// Exportation des middlewares prêts à l'emploi pour la cohérence.
 export const validateUserCreation = validate(createUserSchema);
 export const validateUserId = validate(uuidSchema, 'params');

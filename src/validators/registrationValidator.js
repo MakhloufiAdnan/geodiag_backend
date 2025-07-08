@@ -1,6 +1,10 @@
 import Joi from 'joi';
 import { validate } from '../middleware/validationMiddleware.js';
 
+/**
+ * @file Définit les schémas de validation pour l'inscription d'une compagnie.
+ */
+
 // Schéma pour les données de la compagnie
 const companyRegistrationSchema = Joi.object({
     name: Joi.string().min(2).max(255).required().messages({
@@ -25,12 +29,8 @@ const adminRegistrationSchema = Joi.object({
         'string.min': 'Le mot de passe doit contenir au moins 8 caractères.',
         'any.required': 'Le mot de passe est obligatoire.'
     }),
-    first_name: Joi.string().required().messages({
-        'any.required': 'Le prénom de l\'administrateur est obligatoire.'
-    }),
-    last_name: Joi.string().required().messages({
-        'any.required': 'Le nom de l\'administrateur est obligatoire.'
-    })
+    first_name: Joi.string().required().messages({ 'any.required': 'Le prénom est obligatoire.' }),
+    last_name: Joi.string().required().messages({ 'any.required': 'Le nom de famille est obligatoire.' })
 });
 
 // Schéma principal qui imbrique les deux autres.
@@ -39,5 +39,4 @@ const registerCompanySchema = Joi.object({
     adminData: adminRegistrationSchema.required()
 });
 
-// Exporte uniquement le middleware prêt à l'emploi.
 export const validateRegister = validate(registerCompanySchema);
