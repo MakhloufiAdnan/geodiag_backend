@@ -1,13 +1,14 @@
 import offerService from '../services/offerService.js';
 
 class OfferController {
-    async getPublicOffers(req, res, next) {
+    async getAllOffers(req, res, next) {
         try {
-            const offers = await offerService.getPublicOffers();
+            const offers = await offerService.getAllOffers(req.user);
             res.status(200).json(offers);
         } catch (error) {
             next(error);
         }
     }
 }
+
 export default new OfferController();

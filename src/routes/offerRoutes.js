@@ -4,5 +4,5 @@ import { protect } from '../middleware/authMiddleware.js';
 
 const router = Router();
 // Un utilisateur authentifié peut voir les offres disponibles.
-router.get('/offers', protect, offerController.getPublicOffers);
+router.get('/offers', protect, offerController.getAllOffers);
 export default router;

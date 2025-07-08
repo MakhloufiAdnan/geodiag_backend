@@ -1,3 +1,8 @@
+import stripe from 'stripe';
+
+/**
+ * Middleware pour sécuriser les webhooks de paiement.
+ */
 export async function validateWebhook(req, res, next) {
     // 1. Vérifier que la clé secrète du webhook est bien configurée
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

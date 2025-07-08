@@ -1,7 +1,6 @@
 import { db } from '../db/index.js';
 
 class LicenseRepository {
-    // La méthode create doit correspondre aux colonnes de la table 'licenses'
     async create(licenseData, dbClient = db) {
         const { order_id, company_id, qr_code_payload, status, expires_at } = licenseData;
         const { rows } = await dbClient.query(
@@ -12,7 +11,6 @@ class LicenseRepository {
         return rows[0];
     }
     
-    // Cette méthode est essentielle pour la logique de connexion du technicien
     async findActiveByCompanyId(companyId) {
         const { rows } = await db.query(
             "SELECT * FROM licenses WHERE company_id = $1 AND status = 'active' AND expires_at > NOW()",
