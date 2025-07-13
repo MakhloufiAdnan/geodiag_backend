@@ -1,9 +1,10 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { ForbiddenException, NotFoundException, ConflictException } from '../../src/exceptions/apiException.js';
 
 /**
- * @file Tests unitaires pour UserService
+ * @file Tests unitaires pour UserService.
  * @description Cette suite teste la logique métier de UserService en isolant la couche de repository.
- * Elle valide la logique de hachage, la gestion des erreurs et la logique d'autorisation.
+ * Elle valide la logique de hachage, la gestion des erreurs et les règles d'autorisation.
  */
 
 // 1. Déclaration des Mocks pour les dépendances externes
@@ -34,17 +35,20 @@ describe('UserService', () => {
     // 3. Définition d'utilisateurs simulés pour les tests d'autorisation
     const mockAdminUser = { userId: 'admin-uuid-123', role: 'admin' };
     const mockTechnicianUser = { userId: 'tech-uuid-456', role: 'technician' };
+    const anotherUser = { userId: 'another-user-uuid', role: 'technician' };
 
     // Nettoie tous les mocks avant chaque test pour garantir l'isolation
     beforeEach(() => {
         jest.clearAllMocks();
     });
 
-    // --- Tests pour createUser ---
+    /**
+     * @describe Tests pour la méthode createUser.
+     */
     describe('createUser', () => {
         const userData = { email: 'test@test.com', password: 'password123' };
 
-        it('doit créer un utilisateur si appelé par un admin', async () => {
+        it('doit créer un utilisateur, hacher le mot de passe et appeler le repository si appelé par un admin', async () => {
             // Arrange
             userRepository.findByEmail.mockResolvedValue(null);
             bcrypt.hash.mockResolvedValue('hashed_password');
@@ -58,27 +62,30 @@ describe('UserService', () => {
             expect(userRepository.create).toHaveBeenCalledWith(expect.objectContaining({ password_hash: 'hashed_password' }));
         });
 
-        it('doit lever une erreur 403 si appelé par un technicien', async () => {
+        it('doit lever une ForbiddenException si appelé par un technicien', async () => {
             // Arrange
             const action = () => userService.createUser(userData, mockTechnicianUser);
             // Act & Assert
+            await expect(action).rejects.toThrow(ForbiddenException);
             await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
         });
 
-        it('doit lever une erreur 409 si l\'email existe déjà', async () => {
+        it("doit lever une ConflictException si l'email existe déjà", async () => {
             // Arrange
             userRepository.findByEmail.mockResolvedValue({ email: 'test@test.com' });
             const action = () => userService.createUser(userData, mockAdminUser);
             // Act & Assert
+            await expect(action).rejects.toThrow(ConflictException);
             await expect(action).rejects.toThrow('Un utilisateur avec cet email existe déjà.');
         });
     });
 
-    // --- Tests pour getUserById ---
+    /**
+     * @describe Tests pour la méthode getUserById.
+     */
     describe('getUserById', () => {
         it("doit autoriser un admin à voir n'importe quel profil", async () => {
             // Arrange
-            const anotherUser = { userId: 'another-user-uuid', role: 'technician' };
             userRepository.findById.mockResolvedValue(anotherUser);
 
             // Act
@@ -101,83 +108,137 @@ describe('UserService', () => {
             expect(result).toEqual(mockTechnicianUser);
         });
 
-        it('doit refuser à un technicien de voir le profil d\'un autre', async () => {
+        it("doit lever une NotFoundException si l'utilisateur n'existe pas", async () => {
             // Arrange
-            const action = () => userService.getUserById('another-id', mockTechnicianUser);
+            userRepository.findById.mockResolvedValue(undefined);
+            const action = () => userService.getUserById('non-existent-id', mockAdminUser);
+
             // Act & Assert
+            await expect(action).rejects.toThrow(NotFoundException);
+        });
+
+        it("doit lever une ForbiddenException si un technicien essaie de voir le profil d'un autre", async () => {
+            // Arrange
+            const action = () => userService.getUserById(anotherUser.userId, mockTechnicianUser);
+            // Act & Assert
+            await expect(action).rejects.toThrow(ForbiddenException);
             await expect(action).rejects.toThrow('Accès refusé.');
         });
     });
     
-    // --- Tests pour getAllUsers ---
+    /**
+     * @describe Tests pour la méthode getAllUsers.
+     */
     describe('getAllUsers', () => {
-        it('doit retourner les utilisateurs si appelé par un admin', async () => {
+        it('doit retourner une liste paginée d\'utilisateurs si appelé par un admin', async () => {
             // Arrange
-            userRepository.findAll.mockResolvedValue([]);
-            userRepository.countAll.mockResolvedValue(0);
+            userRepository.findAll.mockResolvedValue([anotherUser]);
+            userRepository.countAll.mockResolvedValue(1);
+            
             // Act
-            await userService.getAllUsers(1, 10, mockAdminUser);
+            const result = await userService.getAllUsers(1, 10, mockAdminUser);
+            
             // Assert
-            expect(userRepository.findAll).toHaveBeenCalled();
+            expect(userRepository.findAll).toHaveBeenCalledWith(10, 0);
+            expect(result.data).toHaveLength(1);
+            expect(result.meta.totalItems).toBe(1);
         });
 
-        it('doit lever une erreur 403 si appelé par un technicien', async () => {
+        it('doit lever une ForbiddenException si appelé par un technicien', async () => {
             // Arrange
             const action = () => userService.getAllUsers(1, 10, mockTechnicianUser);
             // Act & Assert
-            await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
+            await expect(action).rejects.toThrow(ForbiddenException);
         });
     });
 
-    // --- Tests pour updateUser ---
+    /**
+     * @describe Tests pour la méthode updateUser.
+     */
     describe('updateUser', () => {
-        const targetUserId = 'user-to-update-id';
         const updateData = { first_name: 'Updated Name' };
 
-        it('doit autoriser un admin à mettre à jour n\'importe quel utilisateur', async () => {
+        it("doit autoriser un admin à mettre à jour n'importe quel utilisateur", async () => {
             // Arrange
-            userRepository.update.mockResolvedValue({ user_id: targetUserId, ...updateData });
+            userRepository.update.mockResolvedValue({ ...anotherUser, ...updateData });
+            
             // Act
-            await userService.updateUser(targetUserId, updateData, mockAdminUser);
+            await userService.updateUser(anotherUser.userId, updateData, mockAdminUser);
+            
             // Assert
-            expect(userRepository.update).toHaveBeenCalledWith(targetUserId, updateData);
+            expect(userRepository.update).toHaveBeenCalledWith(anotherUser.userId, updateData);
         });
 
         it('doit autoriser un technicien à mettre à jour son propre profil', async () => {
             // Arrange
-            userRepository.update.mockResolvedValue({ user_id: mockTechnicianUser.userId, ...updateData });
+            userRepository.update.mockResolvedValue({ ...mockTechnicianUser, ...updateData });
+            
             // Act
             await userService.updateUser(mockTechnicianUser.userId, updateData, mockTechnicianUser);
+            
             // Assert
             expect(userRepository.update).toHaveBeenCalledWith(mockTechnicianUser.userId, updateData);
         });
 
-        it('doit refuser à un technicien de mettre à jour un autre utilisateur', async () => {
+        it('doit lever une ForbiddenException si un technicien essaie de mettre à jour un autre utilisateur', async () => {
             // Arrange
-            const action = () => userService.updateUser(targetUserId, updateData, mockTechnicianUser);
+            const action = () => userService.updateUser(anotherUser.userId, updateData, mockTechnicianUser);
+            
             // Act & Assert
-            await expect(action).rejects.toThrow('Accès refusé.');
+            await expect(action).rejects.toThrow(ForbiddenException);
+        });
+
+        it("doit lever une ConflictException si l'email est déjà pris par un autre utilisateur", async () => {
+            // Arrange
+            const updateDataWithEmail = { email: 'existing@test.com' };
+            userRepository.findByEmail.mockResolvedValue({ user_id: 'other-user-id' });
+            
+            const action = () => userService.updateUser(mockTechnicianUser.userId, updateDataWithEmail, mockTechnicianUser);
+
+            // Act & Assert
+            await expect(action).rejects.toThrow(ConflictException);
+        });
+
+        it("doit lever une NotFoundException si l'utilisateur à mettre à jour n'existe pas", async () => {
+            // Arrange
+            userRepository.update.mockResolvedValue(null);
+            const action = () => userService.updateUser('non-existent-id', {}, mockAdminUser);
+            
+            // Act & Assert
+            await expect(action).rejects.toThrow(NotFoundException);
         });
     });
 
-    // --- Tests pour deleteUser ---
+    /**
+     * @describe Tests pour la méthode deleteUser.
+     */
     describe('deleteUser', () => {
-        const targetUserId = 'user-to-delete-id';
-
         it('doit autoriser un admin à supprimer un utilisateur', async () => {
             // Arrange
-            userRepository.delete.mockResolvedValue({ user_id: targetUserId });
+            userRepository.delete.mockResolvedValue(anotherUser);
+            
             // Act
-            await userService.deleteUser(targetUserId, mockAdminUser);
+            await userService.deleteUser(anotherUser.userId, mockAdminUser);
+            
             // Assert
-            expect(userRepository.delete).toHaveBeenCalledWith(targetUserId);
+            expect(userRepository.delete).toHaveBeenCalledWith(anotherUser.userId);
         });
 
-        it('doit refuser à un technicien de supprimer un utilisateur', async () => {
+        it('doit lever une ForbiddenException si un technicien essaie de supprimer un utilisateur', async () => {
             // Arrange
-            const action = () => userService.deleteUser(targetUserId, mockTechnicianUser);
+            const action = () => userService.deleteUser(anotherUser.userId, mockTechnicianUser);
+            
             // Act & Assert
-            await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
+            await expect(action).rejects.toThrow(ForbiddenException);
+        });
+
+        it("doit lever une NotFoundException si l'utilisateur à supprimer n'existe pas", async () => {
+            // Arrange
+            userRepository.delete.mockResolvedValue(null);
+            const action = () => userService.deleteUser('non-existent-id', mockAdminUser);
+            
+            // Act & Assert
+            await expect(action).rejects.toThrow(NotFoundException);
         });
     });
 });

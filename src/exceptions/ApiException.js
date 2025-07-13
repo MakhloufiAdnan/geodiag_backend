@@ -7,20 +7,15 @@
  * @class ApiException
  * @extends {Error}
  */
-class ApiException extends Error {
+export class ApiException extends Error {
     /**
-    * @param {number} statusCode - Le code de statut HTTP.
-    * @param {string} message - Le message d'erreur clair.
-    */
+     * @param {number} statusCode - Le code de statut HTTP.
+     * @param {string} message - Le message d'erreur clair.
+     */
     constructor(statusCode, message) {
-    // Appelle le constructeur de la classe Error avec le message.
-    super(message); 
-    
-    // Assigne le statusCode à la bonne propriété.
-    this.statusCode = statusCode; 
-    
-    // Capture la stack trace
-    Error.captureStackTrace(this, this.constructor);
+        super(message); 
+        this.statusCode = statusCode; 
+        Error.captureStackTrace(this, this.constructor);
     }
 }
 

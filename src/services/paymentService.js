@@ -29,8 +29,11 @@ class PaymentService {
             throw new ForbiddenException('Seul un administrateur peut initier un paiement.');
         }
         const order = await orderRepository.findById(orderId);
-        if (!order || order.company_id !== authenticatedUser.companyId) {
-            throw new NotFoundException('Commande non trouvée ou accès non autorisé.');
+        if (!order) {
+            throw new NotFoundException('Commande non trouvée.');
+        }
+        if (order.company_id !== authenticatedUser.companyId) {
+            throw new ForbiddenException('Accès non autorisé à cette commande.');
         }
         const offer = await offerRepository.findById(order.offer_id);
         if (!offer) {
