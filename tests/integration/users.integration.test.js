@@ -16,6 +16,7 @@ import userRoutes from '../../src/routes/userRoutes.js';
 
 // S'assurer que l'environnement est bien 'test'
 process.env.NODE_ENV = 'test';
+
 // Définir un secret JWT de test cohérent
 process.env.JWT_SECRET = 'un-secret-fiable-pour-les-tests';
 
@@ -29,7 +30,7 @@ app.use('/api', userRoutes);
 // Ajoute le gestionnaire d'erreurs pour tester les cas d'erreur
 app.use(errorHandler);
 
-describe('Tests d\'intégration pour /api/users', () => {
+describe("Tests d'intégration pour /api/users", () => {
 
     // -- Variables partagées par les tests --
     let testCompanyId;
@@ -41,6 +42,7 @@ describe('Tests d\'intégration pour /api/users', () => {
      * Le hook `beforeAll` s'exécute une seule fois avant tous les tests.
      */
     beforeAll(async () => {
+
         // 1. Créer une compagnie de test
         const companyRes = await pool.query("INSERT INTO companies (name, email) VALUES ('Test Company', 'company@test.com') RETURNING company_id");
         testCompanyId = companyRes.rows[0].company_id;
@@ -67,18 +69,18 @@ describe('Tests d\'intégration pour /api/users', () => {
      * Le hook `afterAll` s'exécute une seule fois après tous les tests.
      */
     afterAll(async () => {
-
-        // Nettoie les tables dans l'ordre inverse des dépendances
+        
+        // Nettoie les tables dans l'ordre inverse des dépendances (users dépend de companies)
         await pool.query('DELETE FROM users');
         await pool.query('DELETE FROM companies');
 
-        // Ferme la connexion à la base de données
+        // Ferme la connexion à la base de données pour permettre à Jest de se terminer proprement.
         await pool.end();
     });
 
     // -- TESTS POUR LA CRÉATION (POST /users) --
     describe('POST /users', () => {
-        it('Doit créer un utilisateur si l\'utilisateur authentifié est un admin (201)', async () => {
+        it("Doit créer un utilisateur si l'utilisateur authentifié est un admin (201)", async () => {
             const newUser = {
                 email: 'new.user@test.com', password: 'password123', first_name: 'John',
                 last_name: 'Smith', role: 'technician', company_id: testCompanyId
@@ -91,7 +93,7 @@ describe('Tests d\'intégration pour /api/users', () => {
             expect(res.body.email).toBe(newUser.email);
         });
 
-        it('Doit refuser la création si l\'utilisateur authentifié est un technicien (403)', async () => {
+        it("Doit refuser la création si l'utilisateur authentifié est un technicien (403)", async () => {
             const newUser = {
                 email: 'another.user@test.com', password: 'password123', first_name: 'Peter',
                 last_name: 'Pan', role: 'technician', company_id: testCompanyId
@@ -131,7 +133,7 @@ describe('Tests d\'intégration pour /api/users', () => {
             expect(res.body.userId).toBe(adminUserId);
         });
 
-        it('Doit retourner une erreur si l\'ID n\'existe pas (404)', async () => {
+        it("Doit retourner une erreur si l'ID n'existe pas (404)", async () => {
             const nonExistentId = uuidv4();
             const res = await request(app)
                 .get(`/api/users/${nonExistentId}`)
@@ -139,7 +141,7 @@ describe('Tests d\'intégration pour /api/users', () => {
             expect(res.statusCode).toBe(404);
         });
 
-        it('Doit refuser l\'accès sans token (401)', async () => {
+        it("Doit refuser l'accès sans token (401)", async () => {
             const res = await request(app).get('/api/users');
             expect(res.statusCode).toBe(401);
         });

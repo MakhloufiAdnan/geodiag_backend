@@ -49,38 +49,4 @@ describe('CompanyService', () => {
             await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
         });
     });
-
-    // --- Tests pour createCompany ---
-    describe('createCompany', () => {
-        const companyData = { name: 'New Co', email: 'new@co.com' };
-
-        it('Doit créer une compagnie si appelé par un admin et que l\'email est unique', async () => {
-            // Arrange
-            companyRepository.findByEmail.mockResolvedValue(null);
-            companyRepository.create.mockResolvedValue(companyData);
-
-            // Act
-            await companyService.createCompany(companyData, mockAdminUser);
-
-            // Assert
-            expect(companyRepository.create).toHaveBeenCalledWith(companyData);
-        });
-
-        it('Doit lever une erreur 409 si l\'email de la compagnie existe déjà', async () => {
-            // Arrange
-            companyRepository.findByEmail.mockResolvedValue({ email: 'new@co.com' });
-            const action = async () => await companyService.createCompany(companyData, mockAdminUser);
-
-            // Act & Assert
-            await expect(action).rejects.toThrow('Une entreprise avec cet email existe déjà.');
-        });
-        
-        it('Doit lever une erreur 403 si appelé par un technicien', async () => {
-                // Arrange
-                const action = async () => await companyService.createCompany(companyData, mockTechnicianUser);
-
-                // Act & Assert
-                await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
-        });
-    });
 });

@@ -32,11 +32,11 @@ class OfferService {
     /**
      * Récupère une offre par son ID.
      * @param {string} id - L'ID de l'offre.
+     * @param {object} authenticatedUser - L'utilisateur effectuant la requête.
      * @returns {Promise<object|null>} L'offre brute ou null.
      */
-    async getOfferById(id) {
-        // Pas de vérification de droits ici, car la méthode est appelée par d'autres services
-        // qui ont déjà validé l'autorisation.
+    async getOfferById(id, authenticatedUser) {
+        this.#ensureIsAdmin(authenticatedUser);
         return offerRepository.findById(id);
     }
 }

@@ -15,16 +15,14 @@ class OrderService {
      */
     async createOrder(offerId, authenticatedUser) {
         if (!authenticatedUser || authenticatedUser.role !== 'admin') {
-            const error = new Error('Seul un administrateur de compagnie peut passer une commande.');
-            error.statusCode = 403;
-            throw error;
+            throw new ForbiddenError('Seul un administrateur de compagnie peut passer une commande.');
         }
-        const offer = await offerService.getOfferById(offerId);
+        
+        const offer = await offerService.getOfferById(offerId, authenticatedUser);
         if (!offer) {
-            const error = new Error("L'offre sélectionnée n'existe pas.");
-            error.statusCode = 404;
-            throw error;
+            throw new NotFoundError("L'offre sélectionnée n'existe pas.");
         }
+
         const orderData = {
             company_id: authenticatedUser.companyId,
             offer_id: offerId,

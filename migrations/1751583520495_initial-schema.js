@@ -20,19 +20,20 @@ export const up = (pgm) => {
     END;
     $$ LANGUAGE plpgsql;
 
-    -- ########## 1. DÉFINITION DES TYPES ENUMÉRÉS ##########
 
+    -- ########## 1. DÉFINITION DES TYPES ENUMÉRÉS ##########
     CREATE TYPE user_role AS ENUM ('admin', 'technician');
     CREATE TYPE license_status AS ENUM ('active', 'expired', 'revoked');
     CREATE TYPE payment_status AS ENUM ('pending', 'completed', 'failed');
     CREATE TYPE order_status AS ENUM ('pending', 'processing', 'completed', 'cancelled');
     CREATE TYPE ticket_status AS ENUM ('open', 'in_progress', 'closed', 'resolved');
     CREATE TYPE ticket_priority AS ENUM ('low', 'medium', 'high', 'critical');
-    CREATE TYPE energy_type AS ENUM ('diesel', 'gasoline', 'electric', 'hybrid', 'other'); 
-    CREATE TYPE measurement_value_status AS ENUM ('in_tolerance', 'out_of_tolerance'); 
+    CREATE TYPE energy_type AS ENUM ('diesel', 'gasoline', 'electric', 'hybrid', 'other');
+    CREATE TYPE measurement_value_status AS ENUM ('in_tolerance', 'out_of_tolerance');
     CREATE TYPE submission_status AS ENUM ('new', 'read', 'archived');
-    CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer'); 
+    CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer');
     CREATE TYPE vehicle_image_category AS ENUM ('front_axle', 'rear_axle', 'vin_plate', 'damage', 'other');
+
 
     -- ########## 2. TABLES PRINCIPALES (COEUR DE L'APPLICATION) ##########
 
@@ -42,6 +43,7 @@ export const up = (pgm) => {
         address TEXT,
         email VARCHAR(255) UNIQUE NOT NULL,
         phone_number VARCHAR(50) UNIQUE,
+        stripe_customer_id VARCHAR(255) UNIQUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -68,7 +70,7 @@ export const up = (pgm) => {
         price DECIMAL(10, 2) NOT NULL,
         duration_months INT NOT NULL,
         max_users INT,
-        is_public BOOLEAN NOT NULL DEFAULT true, -- Pour pouvoir masquer des offres
+        is_public BOOLEAN NOT NULL DEFAULT true,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -81,6 +83,7 @@ export const up = (pgm) => {
         order_number VARCHAR(255) UNIQUE NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
         status order_status NOT NULL DEFAULT 'pending',
+        stripe_payment_intent_id VARCHAR(255) UNIQUE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -89,7 +92,7 @@ export const up = (pgm) => {
     CREATE TABLE payments (
         payment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         order_id UUID NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
-        gateway_ref VARCHAR(255), -- Référence externe (ex: Stripe, PayPal)
+        gateway_ref VARCHAR(255),
         amount DECIMAL(10, 2) NOT NULL,
         status payment_status NOT NULL,
         method payment_method NOT NULL,
@@ -98,25 +101,23 @@ export const up = (pgm) => {
 
     CREATE TABLE licenses (
         license_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        order_id UUID UNIQUE NOT NULL REFERENCES orders(order_id) ON DELETE RESTRICT, -- Une licence par commande
+        order_id UUID UNIQUE NOT NULL REFERENCES orders(order_id) ON DELETE RESTRICT,
         company_id UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
         qr_code_payload TEXT UNIQUE NOT NULL,
         status license_status NOT NULL DEFAULT 'active',
         expires_at TIMESTAMPTZ,
+        stripe_subscription_id VARCHAR(255) UNIQUE, 
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
-    -- ########## TABLE POUR LA GESTION DES SESSIONS VIA REFRESH TOKENS ##########
 
     CREATE TABLE refresh_tokens (
         token_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-        -- Stockage d'un hash du token
         token_hash VARCHAR(255) NOT NULL,
-        -- Date d'expiration du refresh token
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
 
     -- ########## 3. TABLES DE DONNÉES (VÉHICULES & MESURES) ##########
 
@@ -127,7 +128,6 @@ export const up = (pgm) => {
 
     CREATE TABLE manufacturer_data (
         manufacturer_data_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        -- JSONB stocke les données brutes d'Autodata/HaynesPro: specs, tailles de roues préconisées, etc.
         data JSONB NOT NULL
     );
 
@@ -152,7 +152,6 @@ export const up = (pgm) => {
         energy energy_type NOT NULL,
         mileage INT NOT NULL,
         current_wheel_size VARCHAR(50),
-        -- JSONB pour les options: ADAS, chassis sport, 4 roues directrices, etc.
         options JSONB,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -162,39 +161,35 @@ export const up = (pgm) => {
     CREATE TABLE measurement_reports (
         report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         vehicle_id UUID NOT NULL REFERENCES vehicles(vehicle_id) ON DELETE CASCADE,
-        user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE SET NULL, -- SET NULL si le technicien est supprimé
+        user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE SET NULL,
         report_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         notes TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    -- La table qui définit chaque mesure possible
     CREATE TABLE measurement_definitions (
         definition_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        -- Code unique pour la mesure (ex: 'camber_front_left')
         code VARCHAR(100) UNIQUE NOT NULL,
-        -- Nom lisible pour l'affichage (ex: 'Carrossage Avant Gauche')
         label VARCHAR(255) NOT NULL,
-        -- Unité de la mesure ('degrés', 'mm', 'min')
         unit VARCHAR(20) NOT NULL,
         description TEXT
     );
 
     CREATE TABLE measurement_values (
-        value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
-        measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
-        measured_value DECIMAL(10, 2),
-        manufacturer_min_value DECIMAL(10, 2),
-        manufacturer_max_value DECIMAL(10, 2),
-        status measurement_value_status NOT NULL,
-        sensor_raw_data JSONB
+    value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
+    measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
+    measured_value DECIMAL(10, 2),
+    manufacturer_min_value DECIMAL(10, 2),
+    manufacturer_max_value DECIMAL(10, 2),
+    status measurement_value_status NOT NULL,
+    sensor_raw_data JSONB
     );
 
     CREATE TABLE vehicle_images (
         image_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         vehicle_id UUID NOT NULL REFERENCES vehicles(vehicle_id) ON DELETE CASCADE,
-        s3_url TEXT NOT NULL, -- URL vers le bucket S3
+        s3_url TEXT NOT NULL,
         category vehicle_image_category NOT NULL,
         description TEXT,
         uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -204,10 +199,11 @@ export const up = (pgm) => {
         rule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         model_id UUID REFERENCES models(model_id) ON DELETE SET NULL,
         measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
-        condition VARCHAR(100) NOT NULL, -- ex: 'less_than_min', 'greater_than_max'
+        rule_logic JSONB NOT NULL, -- CORRECTION: Remplacement de 'condition' par une logique JSONB
         interpretation_text TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
 
     -- ########## 4. TABLES POUR LE SITE WEB (SUPPORT, CONTACT) ##########
 
@@ -243,6 +239,7 @@ export const up = (pgm) => {
         sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+
     -- ########## 5. TABLES POUR LA GESTION OFFLINE-FIRST ##########
 
     CREATE TABLE offline_data_cache (
@@ -252,24 +249,16 @@ export const up = (pgm) => {
         PRIMARY KEY (user_id, manufacturer_data_id)
     );
 
+
     -- ########## 6. INDEX POUR L'OPTIMISATION DES REQUÊTES ##########
 
-    -- Accélération de la recherche de user par email
+    -- Index de base
     CREATE INDEX idx_users_email ON users(email);
-
-    -- Accélération de la recherche de licence par QR code ou statut
     CREATE INDEX idx_licenses_qr_code ON licenses(qr_code_payload);
-    CREATE INDEX idx_licenses_status ON licenses(status);
-
-    -- Accélération de la recherche de véhicule par immatriculation ou VIN
     CREATE INDEX idx_vehicles_registration ON vehicles(registration);
     CREATE INDEX idx_vehicles_vin ON vehicles(vin);
 
-    -- Accélération de la recherche d'historique de rapports par véhicule ou technicien
-    CREATE INDEX idx_measurement_reports_vehicle_id ON measurement_reports(vehicle_id);
-    CREATE INDEX idx_measurement_reports_user_id ON measurement_reports(user_id);
-
-    -- Accélération des jointures
+    -- Index pour les jointures fréquentes
     CREATE INDEX idx_users_company_id ON users(company_id);
     CREATE INDEX idx_models_brand_id ON models(brand_id);
     CREATE INDEX idx_orders_company_id ON orders(company_id);
@@ -279,6 +268,22 @@ export const up = (pgm) => {
     CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
     CREATE INDEX idx_measurement_values_definition_id ON measurement_values(measurement_definition_id);
     CREATE INDEX idx_interpretation_rules_definition_id ON interpretation_rules(measurement_definition_id);
+    CREATE INDEX idx_measurement_reports_vehicle_id ON measurement_reports(vehicle_id);
+    CREATE INDEX idx_measurement_reports_user_id ON measurement_reports(user_id);
+    
+    -- Index pour les recherches sur les ID Stripe
+    CREATE INDEX idx_companies_stripe_customer_id ON companies(stripe_customer_id);
+    CREATE INDEX idx_licenses_stripe_subscription_id ON licenses(stripe_subscription_id);
+    CREATE INDEX idx_orders_stripe_payment_intent_id ON orders(stripe_payment_intent_id);
+
+    -- Index composite pour la recherche d'historique (technicien + véhicule)
+    CREATE INDEX idx_reports_user_vehicle ON measurement_reports(user_id, vehicle_id);
+
+    -- Index GIN pour accélérer la recherche dans les options JSONB des véhicules
+    CREATE INDEX idx_vehicles_options_gin ON vehicles USING GIN (options);
+
+    -- Index partiel pour trouver rapidement les licences actives
+    CREATE INDEX idx_licenses_active ON licenses(company_id) WHERE status = 'active';
     `);
 };
 

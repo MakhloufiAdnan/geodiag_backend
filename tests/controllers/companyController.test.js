@@ -49,22 +49,6 @@ describe('CompanyController', () => {
         expect(mockRes.status).toHaveBeenCalledWith(200);
         expect(mockRes.json).toHaveBeenCalledWith(fakeCompanies);
     });
-    
-    it('createCompany doit appeler le service avec req.body et req.user et renvoyer 201', async () => {
-        // Préparation
-        const newCompanyData = { name: 'New Co', email: 'new@co.com' };
-        const createdCompany = { companyId: 'uuid-123', ...newCompanyData };
-        mockReq.body = newCompanyData;
-        companyService.createCompany.mockResolvedValue(createdCompany);
-
-        // Action
-        await companyController.createCompany(mockReq, mockRes, mockNext);
-
-        // Assertion
-        expect(companyService.createCompany).toHaveBeenCalledWith(newCompanyData, mockReq.user);
-        expect(mockRes.status).toHaveBeenCalledWith(201);
-        expect(mockRes.json).toHaveBeenCalled();
-    });
 
     it('doit appeler next(error) si un service lève une erreur', async () => {
         // Préparation

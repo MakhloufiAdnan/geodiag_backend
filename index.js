@@ -5,15 +5,17 @@ import jwt from 'jsonwebtoken';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 
-// Logique métier et configuration de l'application
-import { checkDatabaseConnection } from './src/db/checkConnection.js';
+// Imports pour la sécurité de l'API GraphQL
+import depthLimit from 'graphql-depth-limit';
+import { createComplexityRule, simpleEstimator } from 'graphql-validation-complexity';
+
+// Imports de la logique métier et de la configuration de l'application
+import { checkDatabaseConnection, pool } from './src/db/index.js';
 import { typeDefs } from './src/graphql/typeDefs.js';
 import { resolvers } from './src/graphql/resolvers.js';
-
-// Middlewares
 import { errorHandler } from './src/middleware/errorHandler.js';
 
-// Routes REST
+// Imports des routes REST
 import userRoutes from './src/routes/userRoutes.js';
 import companyRoutes from './src/routes/companyRoutes.js';
 import vehicleRoutes from './src/routes/vehicleRoutes.js';
@@ -22,21 +24,18 @@ import authRoutes from './src/routes/authRoutes.js';
 import paymentWebhookRoutes from './src/routes/paymentWebhookRoutes.js';
 
 // ========================================================================
-// ==                    DÉMARRAGE DU SERVEUR                            ==
+// ==                      DÉMARRAGE DU SERVEUR                          ==
 // ========================================================================
 
 /**
- * Fonction principale qui initialise et démarre le serveur.
- * Elle est asynchrone pour gérer les démarrages de services (DB, Apollo).
+ * Fonction principale asynchrone pour initialiser et démarrer le serveur.
  */
 async function startServer() {
   try {
-
     // --------------------------------------------------------------------
     // -- ÉTAPE 1 : VÉRIFICATION DES DÉPENDANCES (APPROCHE FAIL-FAST)    --
     // --------------------------------------------------------------------
-    // Vérifie la connexion à la base de données AVANT de démarrer
-    // le serveur web. Si cela échoue, l'application s'arrête immédiatement.
+    // Arrête le démarrage si la base de données n'est pas accessible.
     await checkDatabaseConnection();
 
     // --------------------------------------------------------------------
@@ -45,70 +44,92 @@ async function startServer() {
     const app = express();
     const httpServer = http.createServer(app);
 
+    // Règle de validation pour limiter la complexité des requêtes GraphQL.
+    const complexityRule = createComplexityRule({
+      maximumComplexity: 1000, // Coût total maximum, à ajuster selon les besoins.
+      variables: {},
+      estimators: [
+        simpleEstimator({ defaultComplexity: 1 }), // Par défaut, chaque champ a un coût de 1.
+      ],
+    });
+
+    // Initialisation du serveur Apollo avec les règles de sécurité.
     const apolloServer = new ApolloServer({
       typeDefs,
       resolvers,
+      validationRules: [
+        depthLimit(7),      // Limite la profondeur des requêtes pour éviter les abus.
+        complexityRule,     // Applique la règle de limitation de complexité.
+      ],
     });
 
-    // Le démarrage du serveur Apollo est asynchrone et doit être attendu.
     await apolloServer.start();
 
     // --------------------------------------------------------------------
     // -- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS                --
     // --------------------------------------------------------------------
-    // L'ordre des middlewares est important.
-
-    // Active CORS pour autoriser les requêtes cross-domaine.
+    // Active les requêtes cross-domaine.
     app.use(cors());
 
     // --------------------------------------------------------------------
     // -- ÉTAPE 4 : DÉFINITION DES ROUTES                                --
     // --------------------------------------------------------------------
+    // L'ordre des routes et middlewares est crucial.
 
-    // Route de "Health Check" pour vérifier que le service est en ligne.
+    // Route de "Health Check" pour la supervision du service.
     app.get('/', (req, res) => {
       res.status(200).send('API Geodiag is running with REST and GraphQL. 🎉');
     });
 
-    // 1. Enregistrer la route du webhook AVANT le parser JSON global.
-    // Le fichier de route lui-même appliquera le parser `express.raw`.
+    // 1. La route pour les webhooks Stripe est enregistrée AVANT le parser JSON global,
+    // car Stripe nécessite le corps brut de la requête pour valider la signature.
     app.use('/api', paymentWebhookRoutes);
 
-    // 2. Appliquer le parser JSON pour toutes les autres routes.
+    // 2. Activation du parser JSON pour toutes les autres routes.
     app.use(express.json());
 
-    // 3. Enregistrement de toutes les routes REST sous le préfixe /api
+    // 3. Enregistrement des routes REST.
     app.use('/api', userRoutes);
     app.use('/api', companyRoutes);
     app.use('/api', vehicleRoutes);
     app.use('/api', registrationRoutes);
     app.use('/api', authRoutes);
 
-    // 4. Enregistrement du point d'entrée GraphQL sur /graphql
+    // 4. Enregistrement de la route GraphQL avec la logique de contexte sécurisée.
     app.use('/graphql', expressMiddleware(apolloServer, {
       context: async ({ req }) => {
-
-        // 1. Extraire le token des en-têtes
         const authHeader = req.headers.authorization || '';
         if (!authHeader.startsWith('Bearer ')) {
-
-            // Si pas de token, renvoie un contexte sans utilisateur
-            return {};
+          return {}; // Pas de token, retourne un contexte vide.
         }
+        
         const token = authHeader.substring(7);
         try {
+          // 1. Décoder le token pour obtenir uniquement le `userId`.
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          if (!decoded.userId) return {};
 
-            // 2. Vérifier le token et extraire le payload de l'utilisateur
-            const userPayload = jwt.verify(token, process.env.JWT_SECRET);
+          // 2. Récupérer les informations à jour de l'utilisateur depuis la base de données.
+          const { rows } = await pool.query(
+            'SELECT user_id, company_id, email, first_name, last_name, role, is_active FROM users WHERE user_id = $1',
+            [decoded.userId]
+          );
+          
+          // La requête retourne un tableau, on prend le premier (et seul) résultat.
+          const currentUser = rows[0];
 
-            // 3. Renvoyer le payload dans le contexte pour qu'il soit
-            // accessible à tous les résolveurs via `context.user`
-            return { user: userPayload };
+          // 3. Vérifier si l'utilisateur existe et est actif.
+          if (!currentUser || !currentUser.is_active) {
+            return {}; // Utilisateur non trouvé ou inactif, retourne un contexte vide.
+          }
+
+          // 4. Renvoyer l'utilisateur vérifié, qui sera disponible dans tous les résolveurs.
+          return { user: currentUser };
+
         } catch (error) {
-
-            // En cas de token invalide ou expiré, on renvoie un contexte sans utilisateur
-            console.error('Erreur de validation du token GraphQL:', error.message);
-            return {};
+          // Gère les tokens invalides ou expirés en retournant un contexte vide.
+          console.error('Erreur de validation du token GraphQL:', error.message);
+          return {};
         }
       },
     }));
@@ -116,8 +137,7 @@ async function startServer() {
     // --------------------------------------------------------------------
     // -- ÉTAPE 5 : GESTION DES ERREURS                                  --
     // --------------------------------------------------------------------
-    // Le gestionnaire d'erreurs doit TOUJOURS être le dernier middleware
-    // enregistré pour attraper les erreurs de toutes les routes précédentes.
+    // Ce middleware doit être le dernier pour attraper toutes les erreurs.
     app.use(errorHandler);
 
     // --------------------------------------------------------------------
@@ -130,17 +150,13 @@ async function startServer() {
     console.log(`✨ Endpoint GraphQL prêt sur http://localhost:${PORT}/graphql`);
 
   } catch (error) {
-
-    // Si une erreur critique se produit au démarrage (ex: échec de la connexion DB),
-    // affichage et on arrête l'application.
+    // Capture les erreurs critiques au démarrage (ex: connexion DB).
     console.error("🔥 Échec critique du démarrage du serveur. L'application va s'arrêter.");
     console.error(error);
-    
-    // process.exit(1) signale que le processus s'est terminé avec une erreur.
-    // C'est ce qui fera échouer le déploiement sur Render ou le conteneur Docker.
+    // Termine le processus avec un code d'erreur pour signaler l'échec au système d'orchestration.
     process.exit(1);
   }
 }
 
-// Lancement de l'application.
+// Lance l'application.
 startServer();
