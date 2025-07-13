@@ -76,22 +76,29 @@ describe('UserService', () => {
 
     // --- Tests pour getUserById ---
     describe('getUserById', () => {
-        it('doit autoriser un admin à voir n\'importe quel profil', async () => {
+        it("doit autoriser un admin à voir n'importe quel profil", async () => {
             // Arrange
-            const targetUserId = 'some-other-user-id';
+            const anotherUser = { userId: 'another-user-uuid', role: 'technician' };
+            userRepository.findById.mockResolvedValue(anotherUser);
+
             // Act
-            await userService.getUserById(targetUserId, mockAdminUser);
+            const result = await userService.getUserById(anotherUser.userId, mockAdminUser);
+
             // Assert
-            expect(userRepository.findById).toHaveBeenCalledWith(targetUserId);
+            expect(userRepository.findById).toHaveBeenCalledWith(anotherUser.userId);
+            expect(result).toEqual(anotherUser);
         });
 
         it('doit autoriser un technicien à voir son propre profil', async () => {
             // Arrange
-            const targetUserId = mockTechnicianUser.userId;
+            userRepository.findById.mockResolvedValue(mockTechnicianUser);
+
             // Act
-            await userService.getUserById(targetUserId, mockTechnicianUser);
+            const result = await userService.getUserById(mockTechnicianUser.userId, mockTechnicianUser);
+
             // Assert
-            expect(userRepository.findById).toHaveBeenCalledWith(targetUserId);
+            expect(userRepository.findById).toHaveBeenCalledWith(mockTechnicianUser.userId);
+            expect(result).toEqual(mockTechnicianUser);
         });
 
         it('doit refuser à un technicien de voir le profil d\'un autre', async () => {
@@ -122,7 +129,7 @@ describe('UserService', () => {
         });
     });
 
-    // --- Tests pour updateUser (AJOUTÉS) ---
+    // --- Tests pour updateUser ---
     describe('updateUser', () => {
         const targetUserId = 'user-to-update-id';
         const updateData = { first_name: 'Updated Name' };
@@ -153,7 +160,7 @@ describe('UserService', () => {
         });
     });
 
-    // --- Tests pour deleteUser (AJOUTÉS) ---
+    // --- Tests pour deleteUser ---
     describe('deleteUser', () => {
         const targetUserId = 'user-to-delete-id';
 

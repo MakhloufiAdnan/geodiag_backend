@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { pool } from '../db/index.js'; 
 import { generateToken } from '../utils/jwtUtils.js';
 import { UserDto } from '../dtos/userDto.js'; 
+import { ConflictException, BadRequestException } from '../exceptions/apiException.js';
 
 /**
  * @file Gère le processus d'inscription d'une nouvelle compagnie.
@@ -17,25 +18,34 @@ class RegistrationService {
     async registerCompany(registrationData) {
         const { companyData, adminData } = registrationData;
 
+        // Valider que les données nécessaires sont présentes
+        if (!companyData || !adminData) {
+
+            // Utilise BadRequestException pour les données manquantes ou mal formées
+            throw new BadRequestException("Les données de la compagnie et de l'administrateur sont requises.");
+        }
+
         const existingCompany = await companyRepository.findByEmail(companyData.email);
         if (existingCompany) {
-            const error = new Error('Une entreprise avec cet email existe déjà.');
-            error.statusCode = 409;
-            throw error;
+
+            // Utilise ConflictException pour un email déjà existant.
+            throw new ConflictException('Une entreprise avec cet email existe déjà.');
         }
+
         const existingAdmin = await userRepository.findByEmail(adminData.email);
         if (existingAdmin) {
-            const error = new Error('Un utilisateur avec cet email existe déjà.');
-            error.statusCode = 409;
-            throw error;
+            throw new ConflictException('Un utilisateur avec cet email existe déjà.');
         }
 
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
+
             const newCompany = await companyRepository.create(companyData, client);
+
             const saltRounds = 10;
             const password_hash = await bcrypt.hash(adminData.password, saltRounds);
+
             const newAdmin = await userRepository.create({
                 ...adminData,
                 password_hash,
@@ -45,11 +55,15 @@ class RegistrationService {
 
             const payload = { userId: newAdmin.user_id, companyId: newCompany.company_id, role: newAdmin.role };
             const token = generateToken(payload);
+            
             await client.query('COMMIT');
 
             return { token, user: new UserDto(newAdmin), company: newCompany };
         } catch (e) {
             await client.query('ROLLBACK');
+            
+            // Relance l'erreur pour qu'elle soit gérée par le errorHandler central.
+            // Si c'est une exceptions, elle sera préservée.
             throw e;
         } finally {
             client.release();

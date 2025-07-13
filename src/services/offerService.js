@@ -1,27 +1,28 @@
 import offerRepository from '../repositories/offerRepository.js';
 import { OfferDto } from '../dtos/offerDto.js';
+import { ForbiddenException, NotFoundException } from '../exceptions/apiException.js';
 
 /**
  * @file Gère la logique métier pour les offres commerciales.
+ * @class OfferService
  */
 class OfferService {
     /**
-     * Méthode privée pour s'assurer que l'utilisateur est un admin.
-     * @param {object} authenticatedUser - L'utilisateur extrait du token.
+     * Vérifie si l'utilisateur authentifié a le rôle d'administrateur.
      * @private
+     * @param {object} authenticatedUser - L'objet utilisateur issu du token.
+     * @throws {ForbiddenException} Si l'utilisateur n'est pas un administrateur.
      */
     #ensureIsAdmin(authenticatedUser) {
         if (!authenticatedUser || authenticatedUser.role !== 'admin') {
-            const error = new Error('Accès refusé. Droits administrateur requis.');
-            error.statusCode = 403;
-            throw error;
+            throw new ForbiddenException('Accès refusé. Droits administrateur requis.');
         }
     }
 
     /**
-     * Récupère toutes les offres publiques (accessible aux admins).
-     * @param {object} authenticatedUser - L'utilisateur qui fait la requête.
-     * @returns {Promise<Array<OfferDto>>} Une liste d'offres.
+     * Récupère toutes les offres publiques. Accessible uniquement aux administrateurs.
+     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
+     * @returns {Promise<Array<OfferDto>>} Une liste d'offres formatée via DTO.
      */
     async getAllOffers(authenticatedUser) {
         this.#ensureIsAdmin(authenticatedUser);
@@ -30,14 +31,20 @@ class OfferService {
     }
 
     /**
-     * Récupère une offre par son ID.
-     * @param {string} id - L'ID de l'offre.
+     * Récupère une offre par son ID. Accessible uniquement aux administrateurs.
+     * @param {string} id - L'ID de l'offre à récupérer.
      * @param {object} authenticatedUser - L'utilisateur effectuant la requête.
-     * @returns {Promise<object|null>} L'offre brute ou null.
+     * @returns {Promise<object>} L'objet offre brut trouvé.
+     * @throws {ForbiddenException} Si l'utilisateur n'est pas un administrateur.
+     * @throws {NotFoundException} Si aucune offre n'est trouvée pour cet ID.
      */
     async getOfferById(id, authenticatedUser) {
         this.#ensureIsAdmin(authenticatedUser);
-        return offerRepository.findById(id);
+        const offer = await offerRepository.findById(id);
+        if (!offer) {
+            throw new NotFoundException('Offre non trouvée.');
+        }
+        return offer;
     }
 }
 

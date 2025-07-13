@@ -1,37 +1,56 @@
 import nodemailer from 'nodemailer';
+import { ApiException } from '../exceptions/apiException.js';
 
 /**
- * @file Gère l'envoi d'emails transactionnels.
+ * @file Gère l'envoi d'emails transactionnels via un transporteur SMTP.
+ * @class EmailService
  */
 class EmailService {
     constructor() {
+        // La configuration du transporteur est effectuée une seule fois à l'instanciation.
         this.transporter = nodemailer.createTransport({
             host: process.env.EMAIL_HOST,
             port: process.env.EMAIL_PORT,
-            secure: process.env.EMAIL_PORT == 465,
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+            secure: process.env.EMAIL_PORT == 465, // true for 465, false for other ports
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
         });
     }
 
     /**
-     * Envoie l'email de confirmation de licence avec la facture.
-     * @param {object} company - L'objet compagnie destinataire.
-     * @param {object} license - L'objet de la licence créée.
+     * Envoie l'email de confirmation de licence avec la facture en pièce jointe.
+     * @param {object} company - L'objet compagnie destinataire (doit contenir `email` et `name`).
+     * @param {object} license - L'objet de la licence créée (doit contenir `expires_at`, `qr_code_payload`, `order_id`).
      * @param {Buffer} invoicePdfBuffer - Le buffer contenant le PDF de la facture.
+     * @throws {ApiException} Si l'envoi de l'email échoue.
      */
     async sendLicenseAndInvoice(company, license, invoicePdfBuffer) {
         const mailOptions = {
-            from: process.env.EMAIL_FROM,
+            from: `Geodiag <${process.env.EMAIL_FROM}>`,
             to: company.email,
             subject: `Votre licence Geodiag pour ${company.name} est activée !`,
-            html: `<h1>Bonjour ${company.name},</h1><p>Votre licence est active jusqu'au <strong>${new Date(license.expires_at).toLocaleDateString('fr-FR')}</strong>.</p><p>QR code: <strong>${license.qr_code_payload}</strong></p><p>Facture en pièce jointe.</p>`,
-            attachments: [{ filename: `facture-${license.order_id}.pdf`, content: invoicePdfBuffer, contentType: 'application/pdf' }],
+            html: `<h1>Bonjour ${company.name},</h1>
+                <p>Votre licence est désormais active et sera valide jusqu'au <strong>${new Date(license.expires_at).toLocaleDateString('fr-FR')}</strong>.</p>
+                <p>Votre QR code d'activation est : <strong>${license.qr_code_payload}</strong></p>
+                <p>Vous trouverez votre facture en pièce jointe de cet email.</p>
+                <p>L'équipe Geodiag vous remercie de votre confiance.</p>`,
+            attachments: [
+                {
+                    filename: `facture-geodiag-${license.order_id}.pdf`,
+                    content: invoicePdfBuffer,
+                    contentType: 'application/pdf',
+                },
+            ],
         };
         try {
             await this.transporter.sendMail(mailOptions);
-            console.log(`✅ Email de confirmation envoyé à ${company.email}`);
+            console.log(`✅ Email de confirmation envoyé avec succès à ${company.email}`);
         } catch (error) {
-            console.error(`❌ Erreur lors de l'envoi de l'email à ${company.email}:`, error);
+            console.error(`❌ Erreur critique lors de l'envoi de l'email à ${company.email}:`, error);
+            // Relance une erreur applicative pour que le service appelant (PaymentService) puisse la logger.
+            throw new ApiException(500, `Échec de l'envoi de l'email de confirmation.`);
         }
     }
 }
