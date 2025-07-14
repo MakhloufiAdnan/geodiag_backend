@@ -10,12 +10,21 @@ export const shorthands = undefined;
  */
 export const up = (pgm) => {
     pgm.sql(`
-    -- ########## 0. FONCTION TRIGGER POUR LA MISE À JOUR AUTOMATIQUE ##########
-    -- Cette fonction met à jour le champ 'updated_at' à la date/heure actuelle.
+    -- ########## 0. FONCTIONS TRIGGER ##########
+    -- Met à jour le champ 'updated_at' à la date/heure actuelle.
     CREATE OR REPLACE FUNCTION trigger_set_timestamp()
     RETURNS TRIGGER AS $$
     BEGIN
         NEW.updated_at = NOW();
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- Incrémente la version pour le verrouillage optimiste lors de la synchronisation.
+    CREATE OR REPLACE FUNCTION trigger_increment_version()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.version = OLD.version + 1;
         RETURN NEW;
     END;
     $$ LANGUAGE plpgsql;
@@ -33,6 +42,9 @@ export const up = (pgm) => {
     CREATE TYPE submission_status AS ENUM ('new', 'read', 'archived');
     CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer');
     CREATE TYPE vehicle_image_category AS ENUM ('front_axle', 'rear_axle', 'vin_plate', 'damage', 'other');
+
+    -- TYPE POUR LA FILE D'ATTENTE DES TÂCHES
+    CREATE TYPE job_status AS ENUM ('pending', 'in_progress', 'completed', 'failed');
 
 
     -- ########## 2. TABLES PRINCIPALES (COEUR DE L'APPLICATION) ##########
@@ -153,19 +165,23 @@ export const up = (pgm) => {
         mileage INT NOT NULL,
         current_wheel_size VARCHAR(50),
         options JSONB,
+        version INT NOT NULL DEFAULT 1, 
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TRIGGER set_timestamp_vehicles BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+    CREATE TRIGGER set_version_vehicles BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE PROCEDURE trigger_increment_version(); 
 
     CREATE TABLE measurement_reports (
-        report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        report_id UUID PRIMARY KEY, 
         vehicle_id UUID NOT NULL REFERENCES vehicles(vehicle_id) ON DELETE CASCADE,
-        user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE SET NULL,
+        user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
         report_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         notes TEXT,
+        version INT NOT NULL DEFAULT 1, 
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TRIGGER set_version_reports BEFORE UPDATE ON measurement_reports FOR EACH ROW EXECUTE PROCEDURE trigger_increment_version(); 
 
     CREATE TABLE measurement_definitions (
         definition_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -176,14 +192,14 @@ export const up = (pgm) => {
     );
 
     CREATE TABLE measurement_values (
-    value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
-    measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
-    measured_value DECIMAL(10, 2),
-    manufacturer_min_value DECIMAL(10, 2),
-    manufacturer_max_value DECIMAL(10, 2),
-    status measurement_value_status NOT NULL,
-    sensor_raw_data JSONB
+        value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
+        measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
+        measured_value DECIMAL(10, 2),
+        manufacturer_min_value DECIMAL(10, 2),
+        manufacturer_max_value DECIMAL(10, 2),
+        status measurement_value_status NOT NULL,
+        sensor_raw_data JSONB
     );
 
     CREATE TABLE vehicle_images (
@@ -199,7 +215,7 @@ export const up = (pgm) => {
         rule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         model_id UUID REFERENCES models(model_id) ON DELETE SET NULL,
         measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
-        rule_logic JSONB NOT NULL, -- CORRECTION: Remplacement de 'condition' par une logique JSONB
+        rule_logic JSONB NOT NULL,
         interpretation_text TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -240,7 +256,7 @@ export const up = (pgm) => {
     );
 
 
-    -- ########## 5. TABLES POUR LA GESTION OFFLINE-FIRST ##########
+    -- ########## 5. TABLES POUR LA GESTION AVANCÉE (OFFLINE, WEBHOOKS, TÂCHES) ##########
 
     CREATE TABLE offline_data_cache (
         user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -249,7 +265,25 @@ export const up = (pgm) => {
         PRIMARY KEY (user_id, manufacturer_data_id)
     );
 
+    -- TABLE POUR L'IDEMPOTENCE DES WEBHOOKS
+    CREATE TABLE processed_webhook_events (
+        event_id TEXT PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
 
+    -- TABLE POUR LA FILE D'ATTENTE DES TÂCHES
+    CREATE TABLE jobs (
+        id BIGSERIAL PRIMARY KEY,
+        type VARCHAR(255) NOT NULL,
+        payload JSONB NOT NULL,
+        status job_status NOT NULL DEFAULT 'pending',
+        retry_count INT NOT NULL DEFAULT 0,
+        last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TRIGGER set_timestamp_jobs BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+    
     -- ########## 6. INDEX POUR L'OPTIMISATION DES REQUÊTES ##########
 
     -- Index de base
@@ -270,7 +304,7 @@ export const up = (pgm) => {
     CREATE INDEX idx_interpretation_rules_definition_id ON interpretation_rules(measurement_definition_id);
     CREATE INDEX idx_measurement_reports_vehicle_id ON measurement_reports(vehicle_id);
     CREATE INDEX idx_measurement_reports_user_id ON measurement_reports(user_id);
-    
+
     -- Index pour les recherches sur les ID Stripe
     CREATE INDEX idx_companies_stripe_customer_id ON companies(stripe_customer_id);
     CREATE INDEX idx_licenses_stripe_subscription_id ON licenses(stripe_subscription_id);
@@ -279,11 +313,13 @@ export const up = (pgm) => {
     -- Index composite pour la recherche d'historique (technicien + véhicule)
     CREATE INDEX idx_reports_user_vehicle ON measurement_reports(user_id, vehicle_id);
 
-    -- Index GIN pour accélérer la recherche dans les options JSONB des véhicules
+    -- Index avancés (recommandations d'audit)
     CREATE INDEX idx_vehicles_options_gin ON vehicles USING GIN (options);
-
-    -- Index partiel pour trouver rapidement les licences actives
     CREATE INDEX idx_licenses_active ON licenses(company_id) WHERE status = 'active';
+    
+    -- NOUVEAUX INDEX POUR LA FILE D'ATTENTE DES TÂCHES
+    -- Pour trouver rapidement les tâches en attente à traiter
+    CREATE INDEX idx_jobs_pending ON jobs(status, created_at) WHERE status = 'pending';
     `);
 };
 
@@ -297,11 +333,8 @@ export const down = (pgm) => {
     -- ########## 6. SUPPRESSION DES INDEX ##########
     DROP INDEX IF EXISTS idx_users_email;
     DROP INDEX IF EXISTS idx_licenses_qr_code;
-    DROP INDEX IF EXISTS idx_licenses_status;
     DROP INDEX IF EXISTS idx_vehicles_registration;
     DROP INDEX IF EXISTS idx_vehicles_vin;
-    DROP INDEX IF EXISTS idx_measurement_reports_vehicle_id;
-    DROP INDEX IF EXISTS idx_measurement_reports_user_id;
     DROP INDEX IF EXISTS idx_users_company_id;
     DROP INDEX IF EXISTS idx_models_brand_id;
     DROP INDEX IF EXISTS idx_orders_company_id;
@@ -311,10 +344,22 @@ export const down = (pgm) => {
     DROP INDEX IF EXISTS idx_refresh_tokens_user_id;
     DROP INDEX IF EXISTS idx_measurement_values_definition_id;
     DROP INDEX IF EXISTS idx_interpretation_rules_definition_id;
+    DROP INDEX IF EXISTS idx_measurement_reports_vehicle_id;
+    DROP INDEX IF EXISTS idx_measurement_reports_user_id;
+    DROP INDEX IF EXISTS idx_companies_stripe_customer_id;
+    DROP INDEX IF EXISTS idx_licenses_stripe_subscription_id;
+    DROP INDEX IF EXISTS idx_orders_stripe_payment_intent_id;
+    DROP INDEX IF EXISTS idx_reports_user_vehicle;
+    DROP INDEX IF EXISTS idx_vehicles_options_gin;
+    DROP INDEX IF EXISTS idx_licenses_active;
+    -- NOUVEAU : Suppression de l'index de la file d'attente
+    DROP INDEX IF EXISTS idx_jobs_pending;
 
     -- ########## 5. SUPPRESSION DES TABLES (ORDRE INVERSE DE CRÉATION) ##########
 
-    -- Tables pour la gestion Offline-First
+    -- NOUVEAU : Suppression des tables pour la gestion avancée
+    DROP TABLE IF EXISTS jobs;
+    DROP TABLE IF EXISTS processed_webhook_events;
     DROP TABLE IF EXISTS offline_data_cache;
     
     -- Tables pour le site web (Support, Contact)
@@ -345,6 +390,8 @@ export const down = (pgm) => {
     DROP TABLE IF EXISTS companies;
 
     -- ########## 2. SUPPRESSION DES TYPES ENUMÉRÉS ##########
+    -- NOUVEAU : Suppression du type pour la file d'attente
+    DROP TYPE IF EXISTS job_status;
     DROP TYPE IF EXISTS vehicle_image_category;
     DROP TYPE IF EXISTS payment_method;
     DROP TYPE IF EXISTS submission_status;
@@ -357,7 +404,8 @@ export const down = (pgm) => {
     DROP TYPE IF EXISTS license_status;
     DROP TYPE IF EXISTS user_role;
 
-    -- ########## 1. SUPPRESSION DE LA FONCTION TRIGGER ##########
+    -- ########## 1. SUPPRESSION DES FONCTIONS TRIGGER ##########
     DROP FUNCTION IF EXISTS trigger_set_timestamp();
+    DROP FUNCTION IF EXISTS trigger_increment_version();
     `);
 };

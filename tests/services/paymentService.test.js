@@ -82,7 +82,7 @@ describe('PaymentService', () => {
             licenseService.createLicenseForOrder.mockResolvedValue(mockLicense);
             companyRepository.findById.mockResolvedValue(mockCompany);
 
-            await paymentService.handleSuccessfulPayment(mockSession);
+            await paymentService.processSuccessfulPayment(mockSession);
 
             expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
             expect(orderRepository.updateStatus).toHaveBeenCalledWith('order-123', 'completed', mockClient);
@@ -98,7 +98,7 @@ describe('PaymentService', () => {
             pool.connect.mockResolvedValue(mockClient);
             orderRepository.updateStatus.mockRejectedValue(new Error('DB error'));
 
-            const action = () => paymentService.handleSuccessfulPayment(mockSession);
+            const action = () => paymentService.processSuccessfulPayment(mockSession);
 
             await expect(action).rejects.toThrow(ApiException);
             expect(mockClient.query).toHaveBeenCalledWith('BEGIN');

@@ -1,9 +1,18 @@
--- ########## 0. FONCTION TRIGGER POUR LA MISE À JOUR AUTOMATIQUE ##########
-    -- Cette fonction met à jour le champ 'updated_at' à la date/heure actuelle.
+-- ########## 0. FONCTIONS TRIGGER ##########
+    -- Met à jour le champ 'updated_at' à la date/heure actuelle.
     CREATE OR REPLACE FUNCTION trigger_set_timestamp()
     RETURNS TRIGGER AS $$
     BEGIN
         NEW.updated_at = NOW();
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- Incrémente la version pour le verrouillage optimiste lors de la synchronisation.
+    CREATE OR REPLACE FUNCTION trigger_increment_version()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.version = OLD.version + 1;
         RETURN NEW;
     END;
     $$ LANGUAGE plpgsql;
@@ -21,6 +30,9 @@
     CREATE TYPE submission_status AS ENUM ('new', 'read', 'archived');
     CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer');
     CREATE TYPE vehicle_image_category AS ENUM ('front_axle', 'rear_axle', 'vin_plate', 'damage', 'other');
+
+    -- TYPE POUR LA FILE D'ATTENTE DES TÂCHES
+    CREATE TYPE job_status AS ENUM ('pending', 'in_progress', 'completed', 'failed');
 
 
     -- ########## 2. TABLES PRINCIPALES (COEUR DE L'APPLICATION) ##########
@@ -141,19 +153,23 @@
         mileage INT NOT NULL,
         current_wheel_size VARCHAR(50),
         options JSONB,
+        version INT NOT NULL DEFAULT 1, 
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TRIGGER set_timestamp_vehicles BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+    CREATE TRIGGER set_version_vehicles BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE PROCEDURE trigger_increment_version(); 
 
     CREATE TABLE measurement_reports (
-        report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        report_id UUID PRIMARY KEY, 
         vehicle_id UUID NOT NULL REFERENCES vehicles(vehicle_id) ON DELETE CASCADE,
-        user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE SET NULL,
+        user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
         report_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         notes TEXT,
+        version INT NOT NULL DEFAULT 1, 
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TRIGGER set_version_reports BEFORE UPDATE ON measurement_reports FOR EACH ROW EXECUTE PROCEDURE trigger_increment_version(); 
 
     CREATE TABLE measurement_definitions (
         definition_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -164,14 +180,14 @@
     );
 
     CREATE TABLE measurement_values (
-    value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
-    measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
-    measured_value DECIMAL(10, 2),
-    manufacturer_min_value DECIMAL(10, 2),
-    manufacturer_max_value DECIMAL(10, 2),
-    status measurement_value_status NOT NULL,
-    sensor_raw_data JSONB
+        value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
+        measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
+        measured_value DECIMAL(10, 2),
+        manufacturer_min_value DECIMAL(10, 2),
+        manufacturer_max_value DECIMAL(10, 2),
+        status measurement_value_status NOT NULL,
+        sensor_raw_data JSONB
     );
 
     CREATE TABLE vehicle_images (
@@ -187,7 +203,7 @@
         rule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         model_id UUID REFERENCES models(model_id) ON DELETE SET NULL,
         measurement_definition_id UUID NOT NULL REFERENCES measurement_definitions(definition_id),
-        rule_logic JSONB NOT NULL, -- CORRECTION: Remplacement de 'condition' par une logique JSONB
+        rule_logic JSONB NOT NULL,
         interpretation_text TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -228,7 +244,7 @@
     );
 
 
-    -- ########## 5. TABLES POUR LA GESTION OFFLINE-FIRST ##########
+    -- ########## 5. TABLES POUR LA GESTION AVANCÉE (OFFLINE, WEBHOOKS, TÂCHES) ##########
 
     CREATE TABLE offline_data_cache (
         user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -237,7 +253,25 @@
         PRIMARY KEY (user_id, manufacturer_data_id)
     );
 
+    -- TABLE POUR L'IDEMPOTENCE DES WEBHOOKS
+    CREATE TABLE processed_webhook_events (
+        event_id TEXT PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
 
+    -- TABLE POUR LA FILE D'ATTENTE DES TÂCHES
+    CREATE TABLE jobs (
+        id BIGSERIAL PRIMARY KEY,
+        type VARCHAR(255) NOT NULL,
+        payload JSONB NOT NULL,
+        status job_status NOT NULL DEFAULT 'pending',
+        retry_count INT NOT NULL DEFAULT 0,
+        last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TRIGGER set_timestamp_jobs BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
+    
     -- ########## 6. INDEX POUR L'OPTIMISATION DES REQUÊTES ##########
 
     -- Index de base
@@ -267,8 +301,10 @@
     -- Index composite pour la recherche d'historique (technicien + véhicule)
     CREATE INDEX idx_reports_user_vehicle ON measurement_reports(user_id, vehicle_id);
 
-    -- Index GIN pour accélérer la recherche dans les options JSONB des véhicules
+    -- Index avancés (recommandations d'audit)
     CREATE INDEX idx_vehicles_options_gin ON vehicles USING GIN (options);
-
-    -- Index partiel pour trouver rapidement les licences actives
     CREATE INDEX idx_licenses_active ON licenses(company_id) WHERE status = 'active';
+    
+    -- NOUVEAUX INDEX POUR LA FILE D'ATTENTE DES TÂCHES
+    -- Pour trouver rapidement les tâches en attente à traiter
+    CREATE INDEX idx_jobs_pending ON jobs(status, created_at) WHERE status = 'pending';

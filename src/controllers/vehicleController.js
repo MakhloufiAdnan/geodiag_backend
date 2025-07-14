@@ -12,7 +12,7 @@ class VehicleController {
      */
     async getVehicleByRegistration(req, res, next) {
         try {
-            const vehicle = await vehicleService.getVehicleByRegistration(req.params.registration);
+            const vehicle = await vehicleService.getVehicleByRegistration(req.params.registration, req.user);
             if (!vehicle) {
                 return res.status(404).json({ message: "Vehicle not found" });
             }
@@ -30,7 +30,7 @@ class VehicleController {
      */
     async createVehicle(req, res, next) {
         try {
-            const newVehicle = await vehicleService.createVehicle(req.body);
+            const newVehicle = await vehicleService.createVehicle(req.body, req.user);
             res.status(201).json(newVehicle);
         } catch (error) {
             next(error);
