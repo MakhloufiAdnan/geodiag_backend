@@ -1,12 +1,9 @@
 import userService from '../services/userService.js';
-import companyService from '../services/companyService.js';
 import authService from '../services/authService.js';
 import offerService from '../services/offerService.js';
 import orderService from '../services/orderService.js';
 import paymentService from '../services/paymentService.js';
 import licenseRepository from '../repositories/licenseRepository.js';
-import orderRepository from '../repositories/orderRepository.js';
-import offerRepository from '../repositories/offerRepository.js';
 import { GraphQLError } from 'graphql';
 
 // Helper pour vérifier si l'utilisateur est un admin authentifié
@@ -27,7 +24,7 @@ export const resolvers = {
         },
         order: async (_, { id }, context) => {
             ensureAdmin(context.user);
-            const order = await orderRepository.findById(id);
+            const order = await context.dataloaders.orderLoader.load(id); 
             if (!order || order.company_id !== context.user.companyId) {
                 throw new GraphQLError('Commande non trouvée ou accès non autorisé.', { extensions: { code: 'NOT_FOUND' } });
             }
@@ -70,16 +67,21 @@ export const resolvers = {
     // --- RÉSOLVEURS DE RELATIONS (NESTED) ---
     // Permet de naviguer dans le graphe de données.
     Order: {
-        offer: (order) => offerRepository.findById(order.offer_id),
-        company: (order) => companyService.getCompanyById(order.company_id, { role: 'admin' }), // Simule un admin pour passer la sécurité
+        offer: (order, _, context) => {
+            return context.dataloaders.offerLoader.load(order.offer_id);
+        },
+        company: (order, _, context) => {
+            return context.dataloaders.companyLoader.load(order.company_id);
+        },
     },
     License: {
-        order: (license) => orderRepository.findById(license.order_id),
+        order: (license, _, context) => {
+            return context.dataloaders.orderLoader.load(license.order_id);
+        },
     },
     User: {
-        company: (user) => {
-            // Votre DTO doit exposer le companyId pour que cela fonctionne
-            return companyService.getCompanyById(user.companyId, { role: 'admin' });
+        company: (user, _, context) => {
+            return context.dataloaders.companyLoader.load(user.company_id);
         }
     }
 };

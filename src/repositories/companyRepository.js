@@ -50,6 +50,16 @@ class CompanyRepository {
         );
         return rows[0];
     }
+
+    /**
+     * Trouve plusieurs compagnies par leurs ID.
+     * @param {Array<string>} ids - Un tableau d'ID de compagnies.
+     * @returns {Promise<Array<object>>} Un tableau de compagnies.
+     */
+    async findByIds(ids) {
+        const { rows } = await db.query('SELECT * FROM companies WHERE company_id = ANY($1::uuid[])', [ids]);
+        return rows;
+    }
 }
 
 export default new CompanyRepository();

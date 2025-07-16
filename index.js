@@ -23,6 +23,7 @@ import { GraphQLError } from 'graphql';
 // ========================================================================
 import depthLimit from 'graphql-depth-limit';
 import { createComplexityRule, simpleEstimator } from 'graphql-query-complexity';
+import { createDataLoaders } from './src/graphql/dataloaders.js';
 
 // ========================================================================
 // ==                      MODULES APPLICATIFS                           ==
@@ -161,13 +162,13 @@ async function startServer() {
       context: async ({ req }) => {
         const authHeader = req.headers?.authorization?? '';
         if (!authHeader.startsWith('Bearer ')) {
-          return {}; // Pas de token, retourne un contexte vide.
+          return { dataloaders: createDataLoaders() };
         }
 
         const token = authHeader.substring(7);
         try {
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          if (!decoded.userId) return {};
+          if (!decoded.userId) return { dataloaders: createDataLoaders() };
 
           // Récupère les données utilisateur à jour pour chaque requête,
           // garantissant que les permissions sont toujours fraîches.
@@ -178,17 +179,21 @@ async function startServer() {
 
           const currentUser = rows[0];
 
-          // Si l'utilisateur n'existe pas ou a été désactivé, ne pas l'authentifier.
-          if (!currentUser ||!currentUser.is_active) {
-            return {};
+          if (!currentUser || !currentUser.is_active) {
+            return { dataloaders: createDataLoaders() };
           }
           
-          return { user: currentUser };
+          // Retourne l'utilisateur ET les nouvelles instances de dataloader
+            return { 
+                user: currentUser,
+                dataloaders: createDataLoaders() 
+            };
 
         } catch (error) {
+          
           // Gère les tokens invalides ou expirés en retournant un contexte vide.
           console.error(`[GraphQL Context] Erreur de validation du token : ${error.message}`);
-          return {};
+          return { dataloaders: createDataLoaders() };
         }
       },
     }));

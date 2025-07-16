@@ -22,6 +22,16 @@ class OfferRepository {
         const { rows } = await db.query("SELECT * FROM offers WHERE is_public = true ORDER BY price");
         return rows;
     }
+
+    /**
+    * Trouve plusieurs compagnies par leurs ID.
+    * @param {Array<string>} ids - Un tableau d'ID de compagnies.
+    * @returns {Promise<Array<object>>} Un tableau de compagnies.
+    */
+    async findByIds(ids) {
+        const { rows } = await db.query('SELECT * FROM companies WHERE offer_id = ANY($1::uuid[])', [ids]);
+        return rows;
+    }
 }
 
 export default new OfferRepository();
