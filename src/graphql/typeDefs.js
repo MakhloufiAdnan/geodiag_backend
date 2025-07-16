@@ -7,6 +7,7 @@ export const typeDefs = `#graphql
         firstName: String
         lastName: String
         role: String
+        company: Company
     }
 
     type Company {
