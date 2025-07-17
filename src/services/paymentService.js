@@ -10,6 +10,7 @@ import licenseService from './licenseService.js';
 import emailService from './emailService.js';
 import { LicenseDto } from '../dtos/licenseDto.js';
 import { ForbiddenException, NotFoundException, ApiException, ConflictException } from '../exceptions/apiException.js';
+import logger from '../config/logger.js';
 
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -98,7 +99,7 @@ class PaymentService {
             }
 
             await client.query('COMMIT');
-            console.log(`Événement ${event.id} mis en file d'attente avec succès.`);
+            logger.info({ eventId: event.id, eventType: event.type }, 'Événement mis en file d\'attente avec succès.');
         } catch (error) {
             await client.query('ROLLBACK');
 
@@ -106,7 +107,7 @@ class PaymentService {
             if (error instanceof ConflictException) {
                 throw error;
             }
-            console.error(`Erreur lors de la mise en file d'attente de l'événement ${event.id}:`, error);
+            logger.error({ err: error, eventId: event.id }, `Erreur lors de la mise en file d'attente de l'événement webhook.`);
             throw new ApiException(500, `Échec de la mise en file d'attente de l'événement webhook.`);
         } finally {
             client.release();
@@ -154,12 +155,12 @@ class PaymentService {
                 const invoicePdfPlaceholder = Buffer.from('Ceci est une facture de test.');
                 await emailService.sendLicenseAndInvoice(company, newLicense, invoicePdfPlaceholder);
             }
-            console.log(`Traitement de la commande ${orderId} terminé avec succès.`);
+            logger.info({ orderId }, `Traitement de la commande terminé avec succès.`);
             return { success: true, license: new LicenseDto(newLicense) };
         } catch (error) {
             await client.query('ROLLBACK');
 
-            console.error(`Échec du traitement du paiement pour la commande ${orderId}: ${error.message}`);
+            logger.error({ err: error, orderId }, `Échec du traitement du paiement pour la commande.`);
             throw new ApiException(500, `Échec du traitement du paiement pour la commande ${orderId}: ${error.message}`);
         } finally {
             client.release();

@@ -13,9 +13,9 @@ export async function checkDatabaseConnection() {
 
         // Exécute une requête simple et rapide pour confirmer la connexion
         await client.query('SELECT NOW()');
-        console.log('✅ Connexion à la base de données réussie.');
+        logger.info('✅ Connexion à la base de données réussie.');
     } catch (error) {
-        console.error('❌ Échec de la connexion à la base de données :', error.message);
+        logger.error('❌ Échec de la connexion à la base de données :', error.message);
 
         // Relance l'erreur pour que le processus de démarrage puisse l'attraper et s'arrêter
         throw error;

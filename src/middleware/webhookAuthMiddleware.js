@@ -1,14 +1,16 @@
 import stripe from 'stripe';
+import logger from '../config/logger.js';
+
 
 /**
  * Middleware pour sécuriser les webhooks de paiement.
  */
 export async function validateWebhook(req, res, next) {
+
     // 1. Vérifier que la clé secrète du webhook est bien configurée
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
-        console.error('❌ La clé secrète du webhook Stripe (STRIPE_WEBHOOK_SECRET) n\'est pas définie.');
-        // C'est une erreur serveur, car l'application est mal configurée.
+        logger.error('❌ La clé secrète du webhook Stripe (STRIPE_WEBHOOK_SECRET) n\'est pas définie.');
         return res.status(500).send('Erreur de configuration du serveur.');
     }
 
@@ -24,11 +26,11 @@ export async function validateWebhook(req, res, next) {
         // Le contrôleur suivant pourra l'utiliser en toute sécurité.
         req.webhookEvent = event;
         
-        console.log('✅ Webhook Stripe validé avec succès.');
+        logger.info({ eventId: event.id, eventType: event.type }, '✅ Webhook Stripe validé avec succès.');
         next();
 
     } catch (err) {
-        console.error('❌ Échec de la validation du webhook:', err.message);
+        logger.error({ err, signature }, '❌ Échec de la validation du webhook');
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 }

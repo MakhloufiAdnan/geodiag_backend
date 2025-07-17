@@ -2,6 +2,7 @@ import PgBoss from 'pg-boss';
 import 'dotenv/config'; // Pour charger les variables d'environnement (ex: DATABASE_URL)
 import paymentJobHandler from './jobs/paymentJobHandler.js';
 import dbConfig from './config/database.js';
+import logger from './config/logger.js';
 
 /**
  * @file Point d'entrée du processus worker.
@@ -10,9 +11,10 @@ import dbConfig from './config/database.js';
 const boss = new PgBoss(dbConfig);
 
 async function startWorker() {
+
     // pg-boss s'assure que les tables nécessaires existent dans le schéma 'public'
     await boss.start();
-    console.log('Boss started. Worker is ready to process jobs.');
+    logger.info('Boss started. Worker is ready to process jobs.');
 
     // Configuration pour notre type de tâche spécifique
     const jobTypeName = 'process_successful_payment';
@@ -27,17 +29,17 @@ async function startWorker() {
     // pg-boss gère automatiquement les tentatives en cas d'échec du handler.
     await boss.work(jobTypeName, workerOptions, paymentJobHandler);
     
-    console.log(`Worker subscribed to '${jobTypeName}' jobs.`);
+    logger.info(`Worker subscribed to '${jobTypeName}' jobs.`);
 }
 
 startWorker().catch(error => {
-    console.error('❌ Failed to start the worker:', error);
+    logger.fatal({ err: error }, '❌ Failed to start the worker:');
     process.exit(1);
 });
 
 // Assure un arrêt propre du worker
 const gracefulShutdown = async () => {
-    console.log('Worker shutting down gracefully...');
+    logger.warn('Worker shutting down gracefully...');
     await boss.stop();
     process.exit(0);
 };

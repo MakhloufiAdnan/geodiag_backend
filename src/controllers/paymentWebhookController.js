@@ -20,7 +20,7 @@ class PaymentWebhookController {
             // Si l'erreur est un conflit (doublon), on répond quand même 200
             // car l'événement a déjà été traité ou est en cours de traitement.
             if (error.statusCode === 409) {
-                console.log(`Événement en double ignoré : ${req.webhookEvent.id}`);
+                logger.warn(`Événement en double ignoré : ${req.webhookEvent.id}`);
                 res.status(200).send({ message: "Événement en double ignoré." });
             } else {
                 next(error);

@@ -6,7 +6,7 @@ import paymentService from '../services/paymentService.js';
  * @param {object} job - L'objet job fourni par pg-boss, contenant les données (payload).
  */
 const paymentJobHandler = async (job) => {
-    console.log(`Processing job ${job.id} | Type: ${job.name}`);
+    logger.info(`Processing job ${job.id} | Type: ${job.name}`);
     
     // Le 'payload' de la tâche est la session Stripe que nous avons enregistrée
     const session = job.data; 
@@ -16,7 +16,7 @@ const paymentJobHandler = async (job) => {
     // et marquera la tâche comme échouée.
     await paymentService.processSuccessfulPayment(session);
 
-    console.log(`✅ Job ${job.id} completed successfully.`);
+    logger.info(`✅ Job ${job.id} completed successfully.`);
 };
 
 export default paymentJobHandler;

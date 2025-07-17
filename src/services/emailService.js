@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { ApiException } from '../exceptions/apiException.js';
+import logger from '../config/logger.js';
 
 /**
  * @file Gère l'envoi d'emails transactionnels via un transporteur SMTP.
@@ -46,10 +47,9 @@ class EmailService {
         };
         try {
             await this.transporter.sendMail(mailOptions);
-            console.log(`✅ Email de confirmation envoyé avec succès à ${company.email}`);
+            logger.info({ to: company.email, orderId: license.order_id }, '✅ Email de confirmation envoyé avec succès.');
         } catch (error) {
-            console.error(`❌ Erreur critique lors de l'envoi de l'email à ${company.email}:`, error);
-            // Relance une erreur applicative pour que le service appelant (PaymentService) puisse la logger.
+            logger.error({ err: error, recipient: company.email }, `❌ Erreur critique lors de l'envoi de l'email.`);
             throw new ApiException(500, `Échec de l'envoi de l'email de confirmation.`);
         }
     }

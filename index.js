@@ -17,6 +17,7 @@ import jwt from 'jsonwebtoken';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { GraphQLError } from 'graphql';
+import logger from './src/config/logger.js';
 
 // ========================================================================
 // ==                      MODULES DE SÉCURITÉ GRAPHQL                   ==
@@ -192,7 +193,7 @@ async function startServer() {
         } catch (error) {
           
           // Gère les tokens invalides ou expirés en retournant un contexte vide.
-          console.error(`[GraphQL Context] Erreur de validation du token : ${error.message}`);
+          logger.error({ err: error }, `[GraphQL Context] Erreur de validation du token : ${error.message}`);
           return { dataloaders: createDataLoaders() };
         }
       },
@@ -207,12 +208,12 @@ async function startServer() {
     const PORT = process.env.PORT || 4000;
     await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
 
-    console.log(`🚀 Serveur prêt sur http://localhost:${PORT}`);
-    console.log(`✨ Endpoint GraphQL prêt sur http://localhost:${PORT}/graphql`);
+    logger.debug(`🚀 Serveur prêt sur http://localhost:${PORT}`);
+    logger.debug(`✨ Endpoint GraphQL prêt sur http://localhost:${PORT}/graphql`);
 
   } catch (error) {
     // Capture les erreurs critiques au démarrage (ex: échec de la connexion à la BDD).
-    console.error("🔥 Échec critique du démarrage du serveur. L'application va s'arrêter.", error);
+    logger.fatal({ err: error }, "🔥 Échec critique du démarrage du serveur. L'application va s'arrêter.");
     process.exit(1);
   }
 }

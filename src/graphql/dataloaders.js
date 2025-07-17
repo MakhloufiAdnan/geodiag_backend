@@ -8,7 +8,7 @@ import orderRepository from '../repositories/orderRepository.js';
  * Elle prend un tableau d'ID et doit retourner un tableau de compagnies dans le même ordre.
  */
 const batchCompanies = async (companyIds) => {
-    console.log(`Batching companies for IDs: ${companyIds}`);
+    logger.debug(`Batching companies for IDs: ${companyIds}`);
     const companies = await companyRepository.findByIds(companyIds); 
 
     // Mappe les résultats pour garantir le même ordre que les IDs d'entrée
@@ -20,7 +20,7 @@ const batchCompanies = async (companyIds) => {
  * Fonction de "batching" pour les offres.
  */
 const batchOffers = async (offerIds) => {
-    console.log(`Batching offers for IDs: ${offerIds}`);
+    logger.debug(`Batching offers for IDs: ${offerIds}`);
     const offers = await offerRepository.findByIds(offerIds); 
     const offerMap = new Map(offers.map(o => [o.offer_id, o]));
     return offerIds.map(id => offerMap.get(id) || null);
@@ -30,7 +30,7 @@ const batchOffers = async (offerIds) => {
  * Fonction de "batching" pour les commandes.
  */
 const batchOrders = async (orderIds) => {
-    console.log(`Batching orders for IDs: ${orderIds}`);
+    logger.debug(`Batching orders for IDs: ${orderIds}`);
     const orders = await orderRepository.findByIds(orderIds); 
     const orderMap = new Map(orders.map(o => [o.order_id, o]));
     return orderIds.map(id => orderMap.get(id) || null);
