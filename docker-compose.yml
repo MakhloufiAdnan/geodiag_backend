@@ -1,32 +1,46 @@
-# Service pour la base de données Postgres
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: geodiag_db
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   # Service pour l'application API Node.js
   api:
     build: .
     container_name: geodiag_api
-    restart: always
+    # Utilise un fichier .env à la racine pour charger les variables d'environnement.
     env_file:
       - .env
     ports:
-      - "4000:4000"
-    # S'assure que le service postgres est démarré avant de lancer l'api
-    depends_on:
-      - postgres
+      # Mappe le port de l'API défini dans le .env (ex: 3000) au même port sur la machine hôte.
+      - "${PORT}:${PORT}"
     volumes:
       - .:/app
-      # Empêche le dossier node_modules local de masquer celui du conteneur.
       - /app/node_modules
+    # S'assure que la base de données et Redis sont démarrés avant l'API.
+    depends_on:
+      - db
+      - redis
+    # La commande pour lancer l'application en mode développement avec hot-reloading.
+    command: npm run dev
 
+  # Service pour la base de données PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: geodiag_db
+    env_file:
+      - .env
+    ports:
+      # Mappe le port de la BDD pour un accès externe (ex: avec un client SQL).
+      - "${DB_PORT}:${DB_PORT}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Service pour le cache Redis
+  redis:
+    image: redis:latest
+    container_name: geodiag_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+# Définit les volumes nommés pour la persistance des données.
 volumes:
   postgres_data:
+  redis_data:

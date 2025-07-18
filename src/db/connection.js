@@ -1,4 +1,5 @@
 import { pool } from './index.js';
+import logger from '../config/logger.js'; // <-- CORRECTION : Ajout de l'import du logger
 
 /**
  * Tente d'établir une connexion à la base de données pour vérifier
@@ -15,7 +16,7 @@ export async function checkDatabaseConnection() {
         await client.query('SELECT NOW()');
         logger.info('✅ Connexion à la base de données réussie.');
     } catch (error) {
-        logger.error('❌ Échec de la connexion à la base de données :', error.message);
+        logger.error({ err: error }, '❌ Échec de la connexion à la base de données.');
 
         // Relance l'erreur pour que le processus de démarrage puisse l'attraper et s'arrêter
         throw error;
