@@ -7,8 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest",
-    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest --coverage",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest --runInBand",
+    "test:handles": "node --experimental-vm-modules ./node_modules/jest/bin/jest --runInBand --detectOpenHandles",
+    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest --runInBand --coverage",
     "lint": "eslint . --ext .js",
     "migrate": "node-pg-migrate",
     "worker": "node src/worker.js"
@@ -57,6 +58,6 @@
     "nodejs",
     "express"
   ],
-  "author": "Your Company Name",
+  "author": "Assistant Sinistre",
   "license": "ISC"
 }

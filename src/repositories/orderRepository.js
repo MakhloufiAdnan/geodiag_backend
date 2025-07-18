@@ -51,7 +51,7 @@ class OrderRepository {
     * @returns {Promise<Array<object>>} Un tableau de compagnies.
     */
     async findByIds(ids) {
-        const { rows } = await db.query('SELECT * FROM companies WHERE order_id = ANY($1::uuid[])', [ids]);
+        const { rows } = await db.query('SELECT * FROM orders WHERE order_id = ANY($1::uuid)', [ids]);
         return rows;
     }
 }

@@ -1,83 +1,61 @@
+import { describe, it, expect, afterAll, beforeEach } from '@jest/globals';
 import request from 'supertest';
-import express from 'express';
 import bcrypt from 'bcrypt';
-
 import { pool } from '../../src/db/index.js';
-import { errorHandler } from '../../src/middleware/errorHandler.js';
+import { createTestApp } from '../helpers/app.js';
 import { generateToken } from '../../src/utils/jwtUtils.js';
-import companyRoutes from '../../src/routes/companyRoutes.js';
 
-// Configuration de l'environnement de test
+/**
+ * @file Tests d'intégration pour les routes /api/companies.
+ * @description Valide l'accès et les règles d'autorisation sur les compagnies.
+ */
+
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'un-secret-fiable-pour-les-tests';
+process.env.JWT_SECRET = 'test-secret-for-integration';
 
-const app = express();
-app.use(express.json());
-app.use('/api', companyRoutes);
-app.use(errorHandler);
+const app = createTestApp();
 
 describe("Tests d'intégration pour /api/companies", () => {
+    let adminToken, technicianToken, testCompanyId;
 
-    let testCompanyId;
-    let adminToken;
-    let technicianToken;
-
-    beforeAll(async () => {
-        // 1. Créer une compagnie de test
-        const companyRes = await pool.query("INSERT INTO companies (name, email) VALUES ('Company Integration Test', 'company-integ@test.com') RETURNING company_id");
+    /**
+     * Avant chaque test, nettoie la base et la repeuple avec des données fraîches.
+     */
+    beforeEach(async () => {
+        await pool.query('TRUNCATE TABLE companies, users RESTART IDENTITY CASCADE');
+        
+        const companyRes = await pool.query("INSERT INTO companies (name, email) VALUES ('Company Integ Test', 'co-integ@test.com') RETURNING company_id");
         testCompanyId = companyRes.rows[0].company_id;
 
-        // 2. Créer un utilisateur ADMIN et son token
         const adminPassword = await bcrypt.hash('password123', 10);
-        const adminRes = await pool.query(
-            "INSERT INTO users (company_id, email, password_hash, first_name, role) VALUES ($1, 'admin-company@test.com', $2, 'Admin', 'admin') RETURNING *",
-            [testCompanyId, adminPassword]
-        );
+        const adminRes = await pool.query("INSERT INTO users (company_id, email, password_hash, role) VALUES ($1, 'admin.co@test.com', $2, 'admin') RETURNING user_id", [testCompanyId, adminPassword]);
         adminToken = generateToken({ userId: adminRes.rows[0].user_id, companyId: testCompanyId, role: 'admin' });
 
-        // 3. Créer un utilisateur TECHNICIAN et son token
         const techPassword = await bcrypt.hash('password123', 10);
-        const techRes = await pool.query(
-            "INSERT INTO users (company_id, email, password_hash, first_name, role) VALUES ($1, 'tech-company@test.com', $2, 'Tech', 'technician') RETURNING *",
-            [testCompanyId, techPassword]
-        );
+        const techRes = await pool.query("INSERT INTO users (company_id, email, password_hash, role) VALUES ($1, 'tech.co@test.com', $2, 'technician') RETURNING user_id", [testCompanyId, techPassword]);
         technicianToken = generateToken({ userId: techRes.rows[0].user_id, companyId: testCompanyId, role: 'technician' });
     });
 
     afterAll(async () => {
-        // Nettoie les tables dans l'ordre inverse des dépendances
-        await pool.query("DELETE FROM users WHERE email LIKE '%-company@test.com'");
-        await pool.query("DELETE FROM companies WHERE email = 'company-integ@test.com'");
-        
-        // Ferme la connexion à la base de données
         await pool.end();
     });
 
-    describe('GET /companies', () => {
-        it("Doit retourner la liste des compagnies si l'utilisateur est un admin (200)", async () => {
-            const res = await request(app)
-                .get('/api/companies')
-                .set('Authorization', `Bearer ${adminToken}`);
-            
-            expect(res.statusCode).toBe(200);
-            expect(Array.isArray(res.body)).toBe(true);
-        });
+    it("GET /api/companies - Doit retourner la liste des compagnies pour un admin (200)", async () => {
+        const res = await request(app).get('/api/companies').set('Authorization', `Bearer ${adminToken}`);
+        expect(res.statusCode).toBe(200);
+        expect(Array.isArray(res.body)).toBe(true);
+    });
 
-        it("Doit refuser l'accès si l'utilisateur est un technicien (403)", async () => {
-            const res = await request(app)
-                .get('/api/companies')
-                .set('Authorization', `Bearer ${technicianToken}`);
-            
-            expect(res.statusCode).toBe(403);
-        });
+    it("GET /api/companies - Doit refuser l'accès pour un technicien (403)", async () => {
+        const res = await request(app).get('/api/companies').set('Authorization', `Bearer ${technicianToken}`);
+        expect(res.statusCode).toBe(403);
+    });
 
-        it("Doit retourner une compagnie par son ID si l'utilisateur est un admin (200)", async () => {
-            const res = await request(app)
-                .get(`/api/companies/${testCompanyId}`)
-                .set('Authorization', `Bearer ${adminToken}`);
-
-            expect(res.statusCode).toBe(200);
-            expect(res.body.companyId).toBe(testCompanyId);
-        });
+    it("GET /api/companies/:id - Doit retourner une compagnie par son ID pour un admin (200)", async () => {
+        const res = await request(app)
+            .get(`/api/companies/${testCompanyId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.companyId).toBe(testCompanyId);
     });
 });
