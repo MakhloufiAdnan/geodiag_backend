@@ -18,6 +18,7 @@ jest.unstable_mockModule('../../src/db/index.js', () => ({
         connect: jest.fn(),
     }
 }));
+
 // Le mock de jwtUtils est nécessaire car le service l'appelle
 jest.unstable_mockModule('../../src/utils/jwtUtils.js', () => ({
     generateToken: jest.fn(() => 'mock-jwt-token'),
@@ -43,6 +44,7 @@ describe('RegistrationService', () => {
     // Réinitialiser les mocks avant chaque test
     beforeEach(() => {
         jest.clearAllMocks();
+
         // S'assurer que pool.connect retourne toujours notre client mocké
         pool.connect.mockResolvedValue(mockDbClient);
     });
@@ -57,6 +59,7 @@ describe('RegistrationService', () => {
         };
 
         it('doit créer une compagnie et un admin, hacher le mot de passe, et renvoyer un token', async () => {
+
             // Arrange
             companyRepository.findByEmail.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(null);
@@ -79,6 +82,7 @@ describe('RegistrationService', () => {
         });
 
         it("doit lever une ConflictException si l'email de la compagnie existe déjà", async () => {
+
             // Arrange
             companyRepository.findByEmail.mockResolvedValue({ email: 'co@new.com' }); // La compagnie existe
             userRepository.findByEmail.mockResolvedValue(null);
@@ -91,6 +95,7 @@ describe('RegistrationService', () => {
         });
 
         it("doit lever une ConflictException si l'email de l'admin existe déjà", async () => {
+
             // Arrange
             companyRepository.findByEmail.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue({ email: 'admin@new.com' }); // L'admin existe
@@ -103,12 +108,13 @@ describe('RegistrationService', () => {
         });
 
         it("doit exécuter un ROLLBACK si la création de l'utilisateur échoue après celle de la compagnie", async () => {
+            
             // Arrange
             companyRepository.findByEmail.mockResolvedValue(null);
             userRepository.findByEmail.mockResolvedValue(null);
             bcrypt.hash.mockResolvedValue('hashed_password');
             companyRepository.create.mockResolvedValue({ company_id: 'co-uuid' });
-            userRepository.create.mockRejectedValue(new Error('DB error on user creation')); // Échec ici
+            userRepository.create.mockRejectedValue(new Error('DB error on user creation')); 
 
             // Act & Assert
             await expect(registrationService.registerCompany(registrationData)).rejects.toThrow('DB error on user creation');

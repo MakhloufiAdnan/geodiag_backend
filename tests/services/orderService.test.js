@@ -31,6 +31,7 @@ describe('OrderService', () => {
             await orderService.createOrder(mockOffer.offer_id, mockAdminUser);
 
             expect(orderRepository.create).toHaveBeenCalled();
+
             // Vérifie que le montant et l'ID de compagnie sont corrects
             const createCallArg = orderRepository.create.mock.calls[0][0];
             expect(createCallArg.amount).toBe(mockOffer.price);
@@ -43,6 +44,7 @@ describe('OrderService', () => {
         });
 
         it("doit lever une NotFoundException si l'offerId n'existe pas", async () => {
+            
             // Simuler que le service des offres ne trouve rien
             offerService.getOfferById.mockResolvedValue(null);
             

@@ -1,76 +1,87 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 /**
- * @file Tests unitaires pour CompanyController.
- * @description Valide que le contrôleur appelle le service avec les bons arguments
- * et renvoie la réponse HTTP appropriée, en isolant la couche de service.
+ * @file Tests unitaires pour AuthController.
+ * @description Valide que le contrôleur d'authentification appelle le service
+ * avec les bons identifiants et gère les succès et les erreurs.
  */
 
-jest.unstable_mockModule('../../src/services/companyService.js', () => ({
+// 1. Mocker le service d'authentification
+jest.unstable_mockModule('../../src/services/authService.js', () => ({
     default: {
-        getAllCompanies: jest.fn(),
-        getCompanyById: jest.fn(),
+        loginCompanyAdmin: jest.fn(),
+        loginTechnician: jest.fn(),
     },
 }));
 
-const { default: companyService } = await import('../../src/services/companyService.js');
-const { default: companyController } = await import('../../src/controllers/companyController.js');
-const { CompanyDto } = await import('../../src/dtos/companyDto.js');
+// 2. Importer les modules après le mock
+const { default: authService } = await import('../../src/services/authService.js');
+const { default: authController } = await import('../../src/controllers/authController.js');
 
-describe('CompanyController', () => {
+describe('AuthController', () => {
     let mockReq, mockRes, mockNext;
 
     beforeEach(() => {
-        mockReq = { params: {}, user: { userId: 'admin-uuid', role: 'admin' } };
-        mockRes = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+        mockReq = { body: {} };
+        mockRes = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        };
         mockNext = jest.fn();
         jest.clearAllMocks();
     });
 
-    describe('getAllCompanies', () => {
-        it('doit appeler le service avec req.user et renvoyer 200', async () => {
-            // Arrange
-            const fakeCompanies = [{ name: 'Test Co' }];
-            companyService.getAllCompanies.mockResolvedValue(fakeCompanies);
+    describe('loginCompany', () => {
+        it('doit retourner un token et un statut 200 en cas de succès', async () => {
 
-            // Act
-            await companyController.getAllCompanies(mockReq, mockRes, mockNext);
+        // Arrange
+        const credentials = { email: 'admin@test.com', password: 'password' };
+        const authResult = { token: 'fake-jwt-token', user: { email: credentials.email } };
+        mockReq.body = credentials;
+        authService.loginCompanyAdmin.mockResolvedValue(authResult);
 
-            // Assert
-            expect(companyService.getAllCompanies).toHaveBeenCalledWith(mockReq.user);
-            expect(mockRes.status).toHaveBeenCalledWith(200);
-            expect(mockRes.json).toHaveBeenCalledWith(fakeCompanies);
+        // Act
+        await authController.loginCompany(mockReq, mockRes, mockNext);
+
+        // Assert
+        expect(authService.loginCompanyAdmin).toHaveBeenCalledWith(credentials.email, credentials.password);
+        expect(mockRes.status).toHaveBeenCalledWith(200);
+        expect(mockRes.json).toHaveBeenCalledWith(authResult);
+        expect(mockNext).not.toHaveBeenCalled();
+        });
+
+        it('doit appeler next(error) si le service lève une erreur', async () => {
+
+        // Arrange
+        const credentials = { email: 'admin@test.com', password: 'password' };
+        const fakeError = new Error('Identifiants invalides');
+        mockReq.body = credentials;
+        authService.loginCompanyAdmin.mockRejectedValue(fakeError);
+
+        // Act
+        await authController.loginCompany(mockReq, mockRes, mockNext);
+
+        // Assert
+        expect(mockNext).toHaveBeenCalledWith(fakeError);
         });
     });
-    
-    describe('getCompanyById', () => {
-        it('doit retourner un DTO et un statut 200 si la compagnie est trouvée', async () => {
-            // Arrange
-            const companyId = 'uuid-123';
-            const fakeCompany = { company_id: companyId, name: 'Test Co' };
-            mockReq.params.id = companyId;
-            companyService.getCompanyById.mockResolvedValue(new CompanyDto(fakeCompany));
 
-            // Act
-            await companyController.getCompanyById(mockReq, mockRes, mockNext);
+    describe('loginTechnician', () => {
+        it('doit retourner un token et un statut 200 en cas de succès', async () => {
+            
+        // Arrange
+        const credentials = { email: 'tech@test.com', password: 'password' };
+        const authResult = { token: 'fake-jwt-token', user: { email: credentials.email } };
+        mockReq.body = credentials;
+        authService.loginTechnician.mockResolvedValue(authResult);
 
-            // Assert
-            expect(companyService.getCompanyById).toHaveBeenCalledWith(companyId, mockReq.user);
-            expect(mockRes.status).toHaveBeenCalledWith(200);
-            expect(mockRes.json).toHaveBeenCalledWith(new CompanyDto(fakeCompany));
-        });
+        // Act
+        await authController.loginTechnician(mockReq, mockRes, mockNext);
 
-        it('doit retourner un statut 404 si la compagnie n\'est pas trouvée', async () => {
-            // Arrange
-            mockReq.params.id = 'uuid-inconnu';
-            companyService.getCompanyById.mockResolvedValue(null);
-
-            // Act
-            await companyController.getCompanyById(mockReq, mockRes, mockNext);
-
-            // Assert
-            expect(mockRes.status).toHaveBeenCalledWith(404);
-            expect(mockRes.json).toHaveBeenCalledWith({ message: "Company not found" });
+        // Assert
+        expect(authService.loginTechnician).toHaveBeenCalledWith(credentials.email, credentials.password);
+        expect(mockRes.status).toHaveBeenCalledWith(200);
+        expect(mockRes.json).toHaveBeenCalledWith(authResult);
         });
     });
 });
