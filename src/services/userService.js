@@ -7,27 +7,14 @@ import { ForbiddenException, NotFoundException, ConflictException } from '../exc
  * @class UserService
  */
 class UserService {
-    /**
-     * Vérifie si l'utilisateur authentifié a le rôle d'administrateur.
-     * @private
-     * @param {object} authenticatedUser - L'objet utilisateur issu du token.
-     * @throws {ForbiddenException} Si l'utilisateur n'est pas un administrateur.
-     */
-    #ensureIsAdmin(authenticatedUser) {
-        if (!authenticatedUser || authenticatedUser.role !== 'admin') {
-            throw new ForbiddenException('Accès refusé. Droits administrateur requis.');
-        }
-    }
 
     /**
      * Récupère une liste paginée d'utilisateurs. Accessible uniquement aux administrateurs.
      * @param {number} page - Le numéro de la page.
      * @param {number} limit - Le nombre d'éléments par page.
-     * @param {object} authenticatedUser - L'utilisateur effectuant la requête.
      * @returns {Promise<{data: Array<object>, meta: object}>} Un objet contenant les utilisateurs et les métadonnées de pagination.
      */
-    async getAllUsers(page, limit, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async getAllUsers(page, limit) {
         const offset = (page - 1) * limit;
         const [users, totalItems] = await Promise.all([
             userRepository.findAll(limit, offset),
@@ -71,8 +58,7 @@ class UserService {
      * @returns {Promise<object>} Le nouvel utilisateur créé.
      * @throws {ConflictException} Si l'email est déjà utilisé.
      */
-    async createUser(userData, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async createUser(userData) {
         const existingUser = await userRepository.findByEmail(userData.email);
         if (existingUser) {
             throw new ConflictException('Un utilisateur avec cet email existe déjà.');
@@ -112,12 +98,10 @@ class UserService {
     /**
      * Supprime un utilisateur. Accessible uniquement aux administrateurs.
      * @param {string} id - L'ID de l'utilisateur à supprimer.
-     * @param {object} authenticatedUser - L'administrateur effectuant la suppression.
      * @returns {Promise<object>} L'utilisateur qui a été supprimé.
      * @throws {NotFoundException} Si l'utilisateur à supprimer n'est pas trouvé.
      */
-    async deleteUser(id, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async deleteUser(id) {
         const deletedUser = await userRepository.delete(id);
         if (!deletedUser) {
             throw new NotFoundException('Utilisateur non trouvé pour la suppression.');

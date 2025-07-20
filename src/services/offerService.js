@@ -1,6 +1,6 @@
 import offerRepository from '../repositories/offerRepository.js';
 import { OfferDto } from '../dtos/offerDto.js';
-import { ForbiddenException, NotFoundException } from '../exceptions/apiException.js';
+import { NotFoundException } from '../exceptions/apiException.js';
 import redisClient from '../config/redisClient.js'; 
 import logger from '../config/logger.js';
 
@@ -12,18 +12,6 @@ const CACHE_TTL_SECONDS = 3600; // 1 heure
  * @class OfferService
  */
 class OfferService {
-    
-    /**
-     * Vérifie si l'utilisateur authentifié a le rôle d'administrateur.
-     * @private
-     * @param {object} authenticatedUser - L'objet utilisateur issu du token JWT.
-     * @throws {ForbiddenException} Si l'utilisateur n'est pas un administrateur.
-     */
-    #ensureIsAdmin(authenticatedUser) {
-        if (!authenticatedUser || authenticatedUser.role !== 'admin') {
-            throw new ForbiddenException('Accès refusé. Droits administrateur requis.');
-        }
-    }
 
     /**
      * Invalide (supprime) le cache contenant la liste de toutes les offres.
@@ -43,11 +31,9 @@ class OfferService {
     /**
      * Récupère toutes les offres publiques. Les résultats sont mis en cache.
      * Accessible uniquement aux administrateurs.
-     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
      * @returns {Promise<Array<OfferDto>>} Une liste d'offres formatée via DTO.
      */
-    async getAllOffers(authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async getAllOffers() {
 
         try {
             const cachedOffers = await redisClient.get(CACHE_KEY_OFFERS);
@@ -81,13 +67,11 @@ class OfferService {
      * Récupère une offre par son ID.
      * Accessible uniquement aux administrateurs.
      * @param {string} id - L'ID de l'offre à récupérer.
-     * @param {object} authenticatedUser - L'utilisateur effectuant la requête.
      * @returns {Promise<object>} L'objet offre brut trouvé.
      * @throws {ForbiddenException} Si l'utilisateur n'est pas un administrateur.
      * @throws {NotFoundException} Si aucune offre n'est trouvée pour cet ID.
      */
-    async getOfferById(id, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async getOfferById(id) {
         const offer = await offerRepository.findById(id);
         if (!offer) {
             throw new NotFoundException('Offre non trouvée.');
@@ -98,11 +82,9 @@ class OfferService {
     /**
      * Crée une nouvelle offre et invalide le cache des offres.
      * @param {object} offerData - Les données de l'offre à créer.
-     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
      * @returns {Promise<OfferDto>} La nouvelle offre créée.
      */
-    async createOffer(offerData, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async createOffer(offerData) {
         
         const newOffer = await offerRepository.create(offerData);
         await this.#invalidateOffersCache();
@@ -114,12 +96,10 @@ class OfferService {
      * Met à jour une offre existante et invalide le cache des offres.
      * @param {string} id - L'ID de l'offre à mettre à jour.
      * @param {object} offerData - Les nouvelles données.
-     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
      * @returns {Promise<OfferDto>} L'offre mise à jour.
      * @throws {NotFoundException} Si l'offre à mettre à jour n'est pas trouvée.
      */
-    async updateOffer(id, offerData, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async updateOffer(id, offerData) {
 
         const updatedOffer = await offerRepository.update(id, offerData);
         if (!updatedOffer) {
@@ -134,12 +114,10 @@ class OfferService {
     /**
      * Supprime une offre et invalide le cache des offres.
      * @param {string} id - L'ID de l'offre à supprimer.
-     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
      * @returns {Promise<OfferDto>} L'offre qui a été supprimée.
      * @throws {NotFoundException} Si l'offre à supprimer n'est pas trouvée.
      */
-    async deleteOffer(id, authenticatedUser) {
-        this.#ensureIsAdmin(authenticatedUser);
+    async deleteOffer(id) {
 
         const deletedOffer = await offerRepository.delete(id);
         if (!deletedOffer) {

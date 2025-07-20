@@ -2,6 +2,7 @@ import { Router } from 'express';
 import companyController from '../controllers/companyController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateCompanyCreation, validateCompanyId } from '../validators/companyValidator.js';
+import { authorize } from '../middleware/authorizationMiddleware.js';
 
 /**
  * @file Définit les routes pour la gestion des compagnies.
@@ -14,9 +15,9 @@ const router = Router();
 // utilisée si un super-admin pouvait créer des compagnies manuellement.
 router.post('/companies', protect, validateCompanyCreation, companyController.createCompany);
 
-router.get('/companies', protect, companyController.getAllCompanies);
+router.get('/companies', protect, authorize('admin'), companyController.getAllCompanies);
 
 // Valide que l'ID dans l'URL est un UUID valide avant de chercher la compagnie
-router.get('/companies/:id', protect, validateCompanyId, companyController.getCompanyById);
+router.get('/companies/:id', protect, authorize('admin'), validateCompanyId, companyController.getCompanyById);
 
 export default router;

@@ -84,7 +84,11 @@ export const generateInvoicePdf = (order, company, offer) => {
 
         doc.end();
         } catch (error) {
-        reject(error);
+            if (error instanceof Error) {
+                reject(error);
+            } else {
+                reject(new Error(String(error))); // Convertit la valeur en string au cas où
+            }
         }
     });
 };
