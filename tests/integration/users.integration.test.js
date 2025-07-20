@@ -12,7 +12,7 @@ process.env.JWT_SECRET = 'test-secret-for-integration';
  * @file Tests d'intégration pour les routes /api/users.
  * @description Valide les opérations CRUD et les règles d'autorisation sur les utilisateurs.
  */
-const app = createTestApp();
+const { app, server } = createTestApp();
 
 describe("Tests d'intégration pour /api/users", () => {
     let adminToken, technicianToken, testCompanyId, testUserId;
@@ -37,6 +37,7 @@ describe("Tests d'intégration pour /api/users", () => {
     });
 
     afterAll(async () => {
+        await new Promise(resolve => server.close(resolve));
         await pool.end();
     });
 

@@ -1,4 +1,5 @@
 import 'dotenv/config'; 
+import logger from '../src/config/logger.js'; 
 import { Client } from 'pg';
 import { exec } from 'child_process';
 import { promisify } from 'util';

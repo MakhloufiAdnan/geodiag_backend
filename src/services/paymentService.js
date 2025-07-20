@@ -9,6 +9,7 @@ import jobRepository from '../repositories/jobRepository.js';
 import licenseService from './licenseService.js';
 import emailService from './emailService.js';
 import { LicenseDto } from '../dtos/licenseDto.js';
+import { generateInvoicePdf } from '../utils/pdfGenerator.js';
 import { ForbiddenException, NotFoundException, ApiException, ConflictException } from '../exceptions/apiException.js';
 import logger from '../config/logger.js';
 
@@ -116,7 +117,7 @@ class PaymentService {
 
     /**
      * Traite un paiement réussi.
-     * Cette méthode est maintenant conçue pour être appelée par un worker en arrière-plan,
+     * Cette méthode est conçue pour être appelée par un worker en arrière-plan,
      * qui récupère les tâches de la table 'jobs'.
      * @param {object} session - L'objet session de Stripe provenant de la file d'attente.
      * @returns {Promise<{success: boolean, license: LicenseDto}>} Le résultat de l'opération.
@@ -150,10 +151,17 @@ class PaymentService {
             // Les opérations externes (comme l'envoi d'email) se produisent APRÈS que la transaction soit validée.
             const company = await companyRepository.findById(updatedOrder.company_id);
             if (company) {
+                try {
 
-                // Génération de facture PDF.
-                const invoicePdfPlaceholder = Buffer.from('Ceci est une facture de test.');
-                await emailService.sendLicenseAndInvoice(company, newLicense, invoicePdfPlaceholder);
+                    // Remplacer le placeholder par la génération dynamique
+                    logger.info({ orderId }, 'Génération de la facture PDF...');
+                    const invoicePdfBuffer = await generateInvoicePdf(updatedOrder, company, offer);
+                    await emailService.sendLicenseAndInvoice(company, newLicense, invoicePdfBuffer);
+                } catch (emailError) {
+                    
+                    // Logguer l'erreur d'envoi d'email mais ne pas faire échouer le processus global
+                    logger.error({ err: emailError, orderId }, "Échec de l'envoi de l'email de confirmation après un paiement réussi.");
+                }
             }
             logger.info({ orderId }, `Traitement de la commande terminé avec succès.`);
             return { success: true, license: new LicenseDto(newLicense) };

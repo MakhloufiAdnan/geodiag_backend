@@ -13,7 +13,7 @@ import { generateToken } from '../../src/utils/jwtUtils.js';
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret-for-integration';
 
-const app = createTestApp();
+const { app, server } = createTestApp();
 
 describe("Tests d'intégration pour /api/companies", () => {
     let adminToken, technicianToken, testCompanyId;
@@ -37,6 +37,7 @@ describe("Tests d'intégration pour /api/companies", () => {
     });
 
     afterAll(async () => {
+        await new Promise(resolve => server.close(resolve));
         await pool.end();
     });
 

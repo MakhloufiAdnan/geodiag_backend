@@ -10,7 +10,7 @@ process.env.JWT_SECRET = 'test-secret-for-integration';
  * @file Tests d'intégration pour le flux d'inscription.
  * @description Valide la création de compagnies et d'admins via l'endpoint public.
  */
-const app = createTestApp();
+const { app, server } = createTestApp();
 
 describe("Tests d'intégration pour /api/register", () => {
     
@@ -25,6 +25,7 @@ describe("Tests d'intégration pour /api/register", () => {
      * À la fin de tous les tests de cette suite, ferme la connexion à la base de données.
      */
     afterAll(async () => {
+        await new Promise(resolve => server.close(resolve));
         await pool.end();
     });
 
