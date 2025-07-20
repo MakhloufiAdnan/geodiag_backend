@@ -27,15 +27,6 @@ class CompanyRepository {
     }
 
     /**
-     * Récupère toutes les compagnies de la base de données.
-     * @returns {Promise<Array<object>>} Un tableau de toutes les compagnies.
-     */
-    async findAll() {
-        const { rows } = await db.query('SELECT * FROM companies ORDER BY name');
-        return rows;
-    }
-
-    /**
      * Crée une nouvelle compagnie dans la base de données.
      * @param {object} companyData - Les données de la compagnie à créer.
      * @param {object} [dbClient=db] - Un client de base de données optionnel pour les transactions.
@@ -59,6 +50,29 @@ class CompanyRepository {
     async findByIds(ids) {
         const { rows } = await db.query('SELECT * FROM companies WHERE company_id = ANY($1::uuid[])', [ids]);
         return rows;
+    }
+
+    /**
+     * Récupère une liste paginée de toutes les compagnies de la base de données.
+     * @param {number} limit - Le nombre de compagnies par page.
+     * @param {number} offset - Le décalage pour la pagination.
+     * @returns {Promise<Array<object>>} Un tableau de compagnies.
+     */
+    async findAll(limit, offset) {
+        const { rows } = await db.query(
+            'SELECT * FROM companies ORDER BY name LIMIT $1 OFFSET $2',
+            [limit, offset]
+        );
+        return rows;
+    }
+
+    /**
+     * Compte le nombre total de compagnies.
+     * @returns {Promise<number>} Le nombre total de compagnies.
+     */
+    async countAll() {
+        const { rows } = await db.query('SELECT COUNT(*) FROM companies');
+        return parseInt(rows[0].count, 10);
     }
 }
 

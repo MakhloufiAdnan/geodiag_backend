@@ -34,6 +34,7 @@ import { checkDatabaseConnection } from './src/db/connection.js';
 import { typeDefs } from './src/graphql/typeDefs.js';
 import { resolvers } from './src/graphql/resolvers.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
+import { requestLogger } from './src/middleware/loggingMiddleware.js';
 
 // Importation de toutes les routes REST de l'application
 import authRoutes from './src/routes/authRoutes.js';
@@ -55,6 +56,7 @@ import vehicleRoutes from './src/routes/vehicleRoutes.js';
  */
 async function startServer() {
   try {
+
     // --- ÉTAPE 1 : VÉRIFICATION DES DÉPENDANCES (APPROCHE FAIL-FAST) ---
     // Le serveur ne démarre que si la connexion à la base de données est établie.
     await checkDatabaseConnection();
@@ -103,6 +105,9 @@ async function startServer() {
     await apolloServer.start();
 
     // --- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS ---
+
+    // Appliquer le logger contextuel en premier
+    app.use(requestLogger);
 
     /**
      * @description Configuration de la politique CORS (Cross-Origin Resource Sharing).
@@ -180,7 +185,7 @@ async function startServer() {
 
           const currentUser = rows[0];
 
-          if (!currentUser || !currentUser.is_active) {
+          if (!(currentUser?.is_active)) {
             return { dataloaders: createDataLoaders() };
           }
           

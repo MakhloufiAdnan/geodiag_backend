@@ -13,10 +13,21 @@ class VehicleController {
     async getVehicleByRegistration(req, res, next) {
         try {
             const vehicle = await vehicleService.getVehicleByRegistration(req.params.registration, req.user);
-            if (!vehicle) {
-                return res.status(404).json({ message: "Vehicle not found" });
-            }
             res.status(200).json(vehicle);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Récupère une liste paginée de tous les véhicules.
+     */
+    async getAllVehicles(req, res, next) {
+        try {
+            // Utilise l'objet req.pagination préparé par le middleware
+            const { page, limit } = req.pagination;
+            const paginatedResult = await vehicleService.getAllVehicles(page, limit);
+            res.status(200).json(paginatedResult);
         } catch (error) {
             next(error);
         }

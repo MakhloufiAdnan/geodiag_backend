@@ -1,12 +1,13 @@
 import vehicleRepository from '../repositories/vehicleRepository.js';
 import { VehicleDto } from '../dtos/vehicleDto.js';
-import { NotFoundException, ConflictException, ForbiddenException } from '../exceptions/apiException.js';
+import { NotFoundException, ConflictException } from '../exceptions/apiException.js';
 
 /**
  * @file Gère la logique métier pour les véhicules.
  * @class VehicleService
  */
 class VehicleService {
+    
     /**
      * Récupère un véhicule par son immatriculation.
      * @param {string} registration - La plaque d'immatriculation.
@@ -22,18 +23,38 @@ class VehicleService {
     }
 
     /**
-     * Crée un nouveau véhicule.
+     * Récupère une liste paginée de tous les véhicules.
+     * @param {number} page - Le numéro de la page actuelle.
+     * @param {number} limit - Le nombre d'éléments par page.
+     * @returns {Promise<object>} Un objet contenant les données et les métadonnées de pagination.
+     */
+    async getAllVehicles(page, limit) {
+        const offset = (page - 1) * limit;
+
+        // Exécute les deux requêtes en parallèle pour plus d'efficacité
+        const [vehicles, totalItems] = await Promise.all([
+            vehicleRepository.findAll(limit, offset),
+            vehicleRepository.countAll()
+        ]);
+
+        return {
+            data: vehicles.map(vehicle => new VehicleDto(vehicle)),
+            meta: {
+                totalItems,
+                totalPages: Math.ceil(totalItems / limit),
+                currentPage: page,
+                pageSize: limit,
+            },
+        };
+    }
+
+    /**
+     * Crée un nouveau véhicule. L'autorisation est gérée en amont par le middleware.
      * @param {object} vehicleData - Les données du véhicule.
-     * @param {object} authenticatedUser - L'utilisateur qui effectue la requête.
      * @returns {Promise<VehicleDto>} Le nouveau véhicule créé et formaté.
-     * @throws {ForbiddenException} Si l'utilisateur n'est pas autorisé.
      * @throws {ConflictException} Si la plaque ou le VIN existe déjà.
      */
-    async createVehicle(vehicleData, authenticatedUser) {
-        // Seuls les admins ou les techniciens peuvent créer un véhicule.
-        if (!authenticatedUser || !['admin', 'technician'].includes(authenticatedUser.role)) {
-            throw new ForbiddenException('Accès refusé. Seul un utilisateur connecté peut créer un véhicule.');
-        }
+    async createVehicle(vehicleData) {
 
         const existingByReg = await vehicleRepository.findByRegistration(vehicleData.registration);
         if (existingByReg) {

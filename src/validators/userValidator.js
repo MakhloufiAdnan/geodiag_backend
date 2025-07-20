@@ -4,7 +4,6 @@ import { validate } from '../middleware/validationMiddleware.js';
 /**
  * @file Définit les schémas de validation pour les routes des utilisateurs.
  */
-
 const createUserSchema = Joi.object({
     email: Joi.string().email().required().messages({
         'string.email': 'L\'email doit être une adresse valide.',
@@ -26,12 +25,4 @@ const createUserSchema = Joi.object({
     }),
 });
 
-const uuidSchema = Joi.object({
-    id: Joi.string().uuid().required().messages({
-        'string.guid': 'L\'ID dans l\'URL doit être un UUID valide.'
-    })
-});
-
-// Exportation des middlewares prêts à l'emploi pour la cohérence.
 export const validateUserCreation = validate(createUserSchema);
-export const validateUserId = validate(uuidSchema, 'params');

@@ -8,26 +8,23 @@ import { CompanyDto } from '../dtos/companyDto.js';
  */
 class CompanyController {
     /**
-     * Récupère la liste de toutes les compagnies.
+     * Récupère la liste paginée de toutes les compagnies.
      */
     async getAllCompanies(req, res, next) {
         try {
-            const companies = await companyService.getAllCompanies(req.user);
-            res.status(200).json(companies);
+            
+            // Utilise le logger de la requête au lieu du logger global
+            req.log.info('Début de la récupération des compagnies');
+            const paginatedResult = await companyService.getAllCompanies(req.pagination.page, req.pagination.limit);
+            res.status(200).json(paginatedResult);
         } catch (error) {
             next(error);
         }
     }
 
-    /**
-     * Récupère une compagnie spécifique par son ID.
-     */
     async getCompanyById(req, res, next) {
         try {
-            const company = await companyService.getCompanyById(req.params.id, req.user);
-            if (!company) {
-                return res.status(404).json({ message: "Company not found" });
-            }
+            const company = await companyService.getCompanyById(req.params.id);
             res.status(200).json(company);
         } catch (error) {
             next(error);

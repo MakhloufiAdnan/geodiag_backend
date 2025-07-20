@@ -48,6 +48,29 @@ class VehicleRepository {
         );
         return rows[0];
     }
+
+    /**
+     * Récupère une liste paginée de tous les véhicules.
+     * @param {number} limit - Le nombre de véhicules à retourner.
+     * @param {number} offset - Le point de départ pour la récupération.
+     * @returns {Promise<Array<object>>} Un tableau de véhicules.
+     */
+    async findAll(limit, offset) {
+        const { rows } = await db.query(
+            'SELECT * FROM vehicles ORDER BY registration LIMIT $1 OFFSET $2',
+            [limit, offset]
+        );
+        return rows;
+    }
+
+    /**
+     * Compte le nombre total de véhicules dans la base de données.
+     * @returns {Promise<number>} Le nombre total de véhicules.
+     */
+    async countAll() {
+        const { rows } = await db.query('SELECT COUNT(*) FROM vehicles');
+        return parseInt(rows[0].count, 10);
+    }
 }
 
 export default new VehicleRepository();

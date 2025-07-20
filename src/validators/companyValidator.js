@@ -4,8 +4,6 @@ import { validate } from '../middleware/validationMiddleware.js';
 /**
  * @file Définit les schémas de validation pour les routes des compagnies.
  */
-
-// Schéma pour la création d'une entreprise.
 const createCompanySchema = Joi.object({
     name: Joi.string().min(2).max(255).required().messages({
         'string.base': `"name" doit être une chaîne de caractères.`,
@@ -25,14 +23,4 @@ const createCompanySchema = Joi.object({
     }),
 });
 
-// Schéma pour la validation de l'ID dans l'URL (params).
-const companyIdSchema = Joi.object({
-    id: Joi.string().uuid().required().messages({
-        'string.guid': `"id" doit être un UUID valide.`,
-        'any.required': `"id" est un paramètre obligatoire.`
-    })
-});
-
-// Exportation des middlewares prêts à l'emploi.
 export const validateCompanyCreation = validate(createCompanySchema);
-export const validateCompanyId = validate(companyIdSchema, 'params');
