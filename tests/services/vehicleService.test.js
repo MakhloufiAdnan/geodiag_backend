@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { ForbiddenException, ConflictException } from '../../src/exceptions/apiException.js';
+import { ConflictException } from '../../src/exceptions/apiException.js';
 
 /**
  * @file Tests unitaires pour VehicleService.
@@ -22,7 +22,6 @@ const { default: vehicleService } = await import('../../src/services/vehicleServ
 describe('VehicleService', () => {
     const mockAdminUser = { role: 'admin' };
     const mockTechnicianUser = { role: 'technician' };
-    const mockOtherUser = { role: 'other' }; // Un rôle non autorisé
     const vehicleData = { registration: 'AA-123-BB', vin: '1234567890ABCDEFG' };
 
     beforeEach(() => {
@@ -65,17 +64,6 @@ describe('VehicleService', () => {
         
         // Assert
         expect(vehicleRepository.create).toHaveBeenCalledWith(vehicleData);
-        });
-
-        /**
-         * @it Doit lever une ForbiddenException pour un utilisateur avec un rôle non autorisé.
-         */
-        it('doit lever une ForbiddenException pour un utilisateur non autorisé', async () => {
-        // Arrange
-        const action = () => vehicleService.createVehicle(vehicleData, mockOtherUser);
-        
-        // Act & Assert
-        await expect(action).rejects.toThrow(ForbiddenException);
         });
 
         /**

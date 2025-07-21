@@ -19,6 +19,22 @@ services:
     # La commande pour lancer l'application en mode développement avec hot-reloading.
     command: npm run dev
 
+  # Service pour le worker Node.js
+  worker:
+    build: .
+    container_name: geodiag_worker
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    # S'assure que la base de données et Redis sont démarrés avant le worker.
+    depends_on:
+      - db
+      - redis
+    # La commande pour lancer le worker.
+    command: npm run worker
+
   # Service pour la base de données PostgreSQL
   db:
     image: postgres:16-alpine

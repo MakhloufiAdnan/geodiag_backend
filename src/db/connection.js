@@ -1,5 +1,5 @@
 import { pool } from './index.js';
-import logger from '../config/logger.js'; // <-- CORRECTION : Ajout de l'import du logger
+import logger from '../config/logger.js'; 
 
 /**
  * Tente d'établir une connexion à la base de données pour vérifier
@@ -9,6 +9,7 @@ import logger from '../config/logger.js'; // <-- CORRECTION : Ajout de l'import 
 export async function checkDatabaseConnection() {
     let client;
     try {
+
         // Demande une connexion au pool
         client = await pool.connect();
 
@@ -21,6 +22,7 @@ export async function checkDatabaseConnection() {
         // Relance l'erreur pour que le processus de démarrage puisse l'attraper et s'arrêter
         throw error;
     } finally {
+        
         // Libère la connexion pour qu'elle retourne dans le pool
         if (client) {
             client.release();

@@ -28,8 +28,7 @@ router.get(
 // Utilisation du nouveau validateur
 router.get(
     '/users/:id', 
-    protect, 
-    authorize('admin'), 
+    protect,
     validateUuidParam('id'), 
     userController.getUserById);
 router.put(

@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import allRoutes from '../../src/routes/index.js'; 
 import { errorHandler } from '../../src/middleware/errorHandler.js';
+import { requestLogger } from '../../src/middleware/loggingMiddleware.js';
 
 /**
  * Crée et configure une instance de l'application Express ET un serveur HTTP pour les tests.
@@ -9,6 +10,7 @@ import { errorHandler } from '../../src/middleware/errorHandler.js';
  */
 export const createTestApp = () => {
     const app = express();
+    app.use(requestLogger);
     app.use(express.json());
     app.use('/api', allRoutes);
     app.use(errorHandler);

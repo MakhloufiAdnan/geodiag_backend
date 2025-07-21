@@ -1,4 +1,3 @@
-import { pool } from '../src/db/index.js';
 import redisClient from '../src/config/redisClient.js';
 import logger from '../src/config/logger.js';
 /**
@@ -9,8 +8,4 @@ export default async () => {
     logger.info('\nTearing down test environment...');
     redisClient.disconnect();
     logger.info('Redis connection closed.');
-
-    // Ferme le pool de connexions à la base de données
-    await pool.end();
-    logger.info('PostgreSQL pool closed.');
 };

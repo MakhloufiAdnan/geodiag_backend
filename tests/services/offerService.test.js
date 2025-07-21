@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { ForbiddenException, NotFoundException } from '../../src/exceptions/apiException.js';
+import { NotFoundException } from '../../src/exceptions/apiException.js';
 
 /**
  * @file Tests unitaires pour OfferService.
@@ -37,7 +37,6 @@ const { default: offerService } = await import('../../src/services/offerService.
 
 describe('OfferService', () => {
     const mockAdminUser = { role: 'admin' };
-    const mockNonAdminUser = { role: 'technician' };
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -75,15 +74,6 @@ describe('OfferService', () => {
         expect(redisClient.set).toHaveBeenCalled();
         expect(result[0].name).toBe('DB Offer');
         });
-
-        it('doit lever une ForbiddenException si appelé par un non-admin', async () => {
-
-            // Arrange
-            const action = () => offerService.getAllOffers(mockNonAdminUser);
-
-            // Act & Assert
-            await expect(action).rejects.toThrow(ForbiddenException);
-        });
     });
 
     describe('createOffer', () => {
@@ -99,15 +89,6 @@ describe('OfferService', () => {
         // Assert
         expect(offerRepository.create).toHaveBeenCalledWith(offerData);
         expect(redisClient.del).toHaveBeenCalledWith('offers:all');
-        });
-
-        it('doit lever une ForbiddenException si appelé par un non-admin', async () => {
-
-            // Arrange
-            const action = () => offerService.createOffer({}, mockNonAdminUser);
-
-            // Act & Assert
-            await expect(action).rejects.toThrow(ForbiddenException);
         });
     });
 

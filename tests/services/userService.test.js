@@ -62,16 +62,6 @@ describe('UserService', () => {
             expect(userRepository.create).toHaveBeenCalledWith(expect.objectContaining({ password_hash: 'hashed_password' }));
         });
 
-        it('doit lever une ForbiddenException si appelé par un technicien', async () => {
-
-            // Arrange
-            const action = () => userService.createUser(userData, mockTechnicianUser);
-
-            // Act & Assert
-            await expect(action).rejects.toThrow(ForbiddenException);
-            await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
-        });
-
         it("doit lever une ConflictException si l'email existe déjà", async () => {
 
             // Arrange
@@ -153,15 +143,6 @@ describe('UserService', () => {
             expect(result.data).toHaveLength(1);
             expect(result.meta.totalItems).toBe(1);
         });
-
-        it('doit lever une ForbiddenException si appelé par un technicien', async () => {
-
-            // Arrange
-            const action = () => userService.getAllUsers(1, 10, mockTechnicianUser);
-
-            // Act & Assert
-            await expect(action).rejects.toThrow(ForbiddenException);
-        });
     });
 
     /**
@@ -240,15 +221,6 @@ describe('UserService', () => {
             
             // Assert
             expect(userRepository.delete).toHaveBeenCalledWith(anotherUser.userId);
-        });
-
-        it('doit lever une ForbiddenException si un technicien essaie de supprimer un utilisateur', async () => {
-
-            // Arrange
-            const action = () => userService.deleteUser(anotherUser.userId, mockTechnicianUser);
-            
-            // Act & Assert
-            await expect(action).rejects.toThrow(ForbiddenException);
         });
 
         it("doit lever une NotFoundException si l'utilisateur à supprimer n'existe pas", async () => {

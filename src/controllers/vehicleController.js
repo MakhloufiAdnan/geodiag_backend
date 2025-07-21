@@ -12,7 +12,7 @@ class VehicleController {
      */
     async getVehicleByRegistration(req, res, next) {
         try {
-            const vehicle = await vehicleService.getVehicleByRegistration(req.params.registration, req.user);
+            const vehicle = await vehicleService.getVehicleByRegistration(req.params.registration);
             res.status(200).json(vehicle);
         } catch (error) {
             next(error);
@@ -41,7 +41,7 @@ class VehicleController {
      */
     async createVehicle(req, res, next) {
         try {
-            const newVehicle = await vehicleService.createVehicle(req.body, req.user);
+            const newVehicle = await vehicleService.createVehicle(req.body);
             res.status(201).json(newVehicle);
         } catch (error) {
             next(error);

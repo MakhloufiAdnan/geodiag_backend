@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, afterAll, beforeAll, beforeEach } from '@jest/globals';
 import request from 'supertest';
 import { pool } from '../../src/db/index.js';
 import { createTestApp } from '../helpers/app.js';
@@ -7,67 +7,73 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret-for-integration';
 
 /**
- * @file Tests d'intégration pour le flux d'inscription.
- * @description Valide la création de compagnies et d'admins via l'endpoint public.
+ * @file Tests d'intégration pour le flux d'inscription (/api/register).
  */
-const { app, server } = createTestApp();
+describe("Suites de tests pour /api/register", () => {
+    let app, server;
 
-describe("Tests d'intégration pour /api/register", () => {
-    
     /**
-     * Avant chaque test, nettoie les tables pour garantir une isolation complète.
+     * @description Démarre le serveur une seule fois avant tous les tests de cette suite.
+     */
+    beforeAll(() => {
+        const testApp = createTestApp();
+        app = testApp.app;
+        server = testApp.server;
+    });
+
+    /**
+     * @description Avant chaque test, vide les tables concernées.
      */
     beforeEach(async () => {
         await pool.query('TRUNCATE TABLE companies, users RESTART IDENTITY CASCADE');
     });
 
     /**
-     * À la fin de tous les tests de cette suite, ferme la connexion à la base de données.
+     * @description Ferme le serveur à la fin des tests de la suite.
      */
     afterAll(async () => {
-        await new Promise(resolve => server.close(resolve));
+        
+        // 1. Fermer le serveur HTTP pour arrêter d'accepter de nouvelles requêtes
+        if (server) {
+            await new Promise(resolve => server.close(resolve));
+        }
+
+        // 2. Fermer le pool de connexions à la base de données
         await pool.end();
     });
 
     /**
-     * @it Doit créer une compagnie et un admin avec des données valides, et renvoyer un statut 201 avec un token.
+     * @description Teste un scénario d'inscription réussi pour une nouvelle compagnie et son admin.
      */
     it('POST /register/company - Doit créer une compagnie et un admin, et renvoyer un token (201)', async () => {
-
-        // Arrange
         const newRegistration = {
             companyData: { name: "Register Co", email: "co@register-test.com" },
             adminData: { email: "admin@register-test.com", password: "password123", first_name: "Reg", last_name: "Ister" }
         };
 
-        // Act
         const res = await request(app).post('/api/register/company').send(newRegistration);
-        
-        // Assert
+
         expect(res.statusCode).toBe(201);
         expect(res.body).toHaveProperty('token');
     });
 
     /**
-     * @it Doit refuser la création si l'email de la compagnie existe déjà (statut 409).
+     * @description Teste la gestion d'erreur lors d'une tentative d'inscription avec un email de compagnie déjà existant.
      */
-    it("POST /register/company - Doit refuser si l'email existe déjà (409)", async () => {
-
-        // Arrange: Créer d'abord une compagnie pour provoquer le conflit.
-        await request(app).post('/api/register/company').send({
+    it("POST /register/company - Doit refuser si l'email de la compagnie existe déjà (409)", async () => {
+        const firstRegistration = {
             companyData: { name: "Existing Co", email: "co@conflict.com" },
             adminData: { email: "admin1@conflict.com", password: "password123", first_name: "Admin", last_name: "One" }
-        });
-        
+        };
+        await request(app).post('/api/register/company').send(firstRegistration);
+
         const conflictingRegistration = {
             companyData: { name: "Another Co", email: "co@conflict.com" }, // Email en conflit
             adminData: { email: "admin2@conflict.com", password: "password123", first_name: "Admin", last_name: "Two" }
         };
 
-        // Act
         const res = await request(app).post('/api/register/company').send(conflictingRegistration);
-        
-        // Assert
+
         expect(res.statusCode).toBe(409);
     });
 });
