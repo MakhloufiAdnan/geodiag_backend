@@ -1,5 +1,5 @@
 import PgBoss from 'pg-boss';
-import 'dotenv/config'; // Pour charger les variables d'environnement (ex: DATABASE_URL)
+import 'dotenv/config';
 import paymentJobHandler from './jobs/paymentJobHandler.js';
 import dbConfig from './config/database.js';
 import logger from './config/logger.js';
@@ -7,42 +7,41 @@ import logger from './config/logger.js';
 /**
  * @file Point d'entrée du processus worker.
  * @description Initialise pg-boss, s'abonne aux types de tâches et démarre le traitement.
+ * Ce fichier est conçu pour être à la fois un script exécutable et un module importable.
  */
+
+// 1. Définir et créer l'instance de pg-boss.
 const boss = new PgBoss(dbConfig);
 
+/**
+ * @description Encapsule la logique de démarrage du worker.
+ * @async
+ */
 async function startWorker() {
 
-    // pg-boss s'assure que les tables nécessaires existent dans le schéma 'public'
+    // pg-boss s'assure que les tables nécessaires existent.
     await boss.start();
     logger.info('Boss started. Worker is ready to process jobs.');
 
-    // Configuration pour notre type de tâche spécifique
     const jobTypeName = 'process_successful_payment';
     const workerOptions = {
-        // Traiter une seule tâche à la fois pour ce type.
-        // Augmenter pour plus de parallélisme si nécessaire.
         teamSize: 1, 
         teamConcurrency: 1, 
     };
 
-    // Le worker s'abonne aux tâches de ce type et les exécute avec le handler fourni.
-    // pg-boss gère automatiquement les tentatives en cas d'échec du handler.
+    // Le worker s'abonne aux tâches et les exécute.
     await boss.work(jobTypeName, workerOptions, paymentJobHandler);
     
     logger.info(`Worker subscribed to '${jobTypeName}' jobs.`);
 }
 
-startWorker().catch(error => {
-    logger.fatal({ err: error }, '❌ Failed to start the worker:');
-    process.exit(1);
-});
+// 2. Démarrer le worker UNIQUEMENT si ce fichier est exécuté directement 
+if (process.env.JEST_WORKER_ID === undefined) {
+    startWorker().catch(error => {
+        logger.fatal({ err: error }, '❌ Failed to start the worker:');
+        process.exit(1);
+    });
+}
 
-// Assure un arrêt propre du worker
-const gracefulShutdown = async () => {
-    logger.warn('Worker shutting down gracefully...');
-    await boss.stop();
-    process.exit(0);
-};
-
-process.on('SIGINT', gracefulShutdown); // Ctrl+C
-process.on('SIGTERM', gracefulShutdown); // Arrêt par le système (ex: Docker, Kubernetes)
+// 3. Exporter l'instance `boss` 
+export default boss;

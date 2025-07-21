@@ -1,18 +1,34 @@
-import globalLogger from '../config/logger.js';
+import logger from '../config/logger.js';
 
-export function errorHandler(err, req, res, next) {
-    
-    // Utilise req.log qui contient déjà le contexte (requestId, url, etc.)
-    // Si req.log n'existe pas (erreur très précoce), on utilise le logger global par sécurité.
-    const logger = req.log || globalLogger;
+/**
+ * @description Middleware Express pour attraper et formater toutes les erreurs de manière robuste.
+ * @param {Error & {statusCode?: number}} err L'objet erreur, potentiellement avec un statusCode.
+ * @param {import('express').Request} req L'objet requête Express.
+ * @param {import('express').Response} res L'objet réponse Express.
+ * @param {import('express').NextFunction} next La fonction next.
+ */
+export const errorHandler = (err, req, res, next) => {
+    if (res.headersSent) {
+        return next(err);
+    }
 
-    logger.error({ 
-        err, 
-        stack: err.stack,
-    }, '--- GESTIONNAIRE D\'ERREURS ATTRAPÉ ---');
-    
+    // Si err.statusCode existe, on l'utilise, sinon 500 par défaut.
     const statusCode = err.statusCode || 500;
-    const message = err.message || 'Une erreur est survenue sur le serveur';
+    const message = statusCode < 500 ? err.message : 'Une erreur inattendue est survenue.';
 
+    // Log l'erreur (sauf en environnement de test pour garder une sortie propre).
+    if (process.env.NODE_ENV !== 'test') {
+        const log = req.log || logger;
+        log.error("--- GESTIONNAIRE D'ERREURS ATTRAPÉ ---", {
+        err: {
+            type: err.constructor.name,
+            message: err.message,
+            stack: err.stack,
+            statusCode: statusCode, // Log le code statut final.
+        },
+        });
+    }
+    
+    // Envoie la réponse finale et formatée au client.
     res.status(statusCode).json({ message });
-}
+};
