@@ -1,12 +1,13 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { NotFoundException } from '../../src/exceptions/apiException.js';
+import { OfferDto } from '../../src/dtos/offerDto.js';
 
 /**
  * @file Tests unitaires pour OfferService.
- * @description Valide la logique métier, d'autorisation et de gestion du cache.
+ * @description Valide la logique métier, d'autorisation et de gestion du cache pour les offres.
  */
 
-// 1. Mocker les dépendances
+// 1. Mocker les dépendances pour isoler le service.
 jest.unstable_mockModule('../../src/repositories/offerRepository.js', () => ({
     default: {
         findAllPublic: jest.fn(),
@@ -30,13 +31,13 @@ jest.unstable_mockModule('../../src/config/logger.js', () => ({
     },
 }));
 
-// 2. Imports après les mocks
+// 2. Imports dynamiques après la configuration des mocks.
 const { default: offerRepository } = await import('../../src/repositories/offerRepository.js');
 const { default: redisClient } = await import('../../src/config/redisClient.js');
 const { default: offerService } = await import('../../src/services/offerService.js');
 
 describe('OfferService', () => {
-    const mockAdminUser = { role: 'admin' };
+    const mockOffer = { offer_id: '1', name: 'DB Offer', price: 99.99, is_public: true };
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -44,104 +45,117 @@ describe('OfferService', () => {
 
     describe('getAllOffers', () => {
         it('doit retourner les données du cache si elles existent (CACHE HIT)', async () => {
+            // Arrange
+            const cachedData = [{ name: 'Cached Offer' }];
+            redisClient.get.mockResolvedValue(JSON.stringify(cachedData));
 
-        // Arrange
-        const cachedData = [{ name: 'Cached Offer' }];
-        redisClient.get.mockResolvedValue(JSON.stringify(cachedData));
+            // Act
+            const result = await offerService.getAllOffers();
 
-        // Act
-        const result = await offerService.getAllOffers(mockAdminUser);
-
-        // Assert
-        expect(redisClient.get).toHaveBeenCalledWith('offers:all');
-        expect(offerRepository.findAllPublic).not.toHaveBeenCalled();
-        expect(result).toEqual(cachedData);
+            // Assert
+            expect(redisClient.get).toHaveBeenCalledWith('offers:all');
+            expect(offerRepository.findAllPublic).not.toHaveBeenCalled();
+            expect(result).toEqual(cachedData);
         });
 
         it('doit récupérer les données de la BDD et les mettre en cache (CACHE MISS)', async () => {
+            // Arrange
+            redisClient.get.mockResolvedValue(null);
+            offerRepository.findAllPublic.mockResolvedValue([mockOffer]);
 
-        // Arrange
-        const dbData = [{ offer_id: '1', name: 'DB Offer' }];
-        redisClient.get.mockResolvedValue(null);
-        offerRepository.findAllPublic.mockResolvedValue(dbData);
+            // Act
+            const result = await offerService.getAllOffers();
 
-        // Act
-        const result = await offerService.getAllOffers(mockAdminUser);
+            // Assert
+            expect(redisClient.get).toHaveBeenCalledWith('offers:all');
+            expect(offerRepository.findAllPublic).toHaveBeenCalled();
+            expect(redisClient.set).toHaveBeenCalled();
+            expect(result[0].name).toBe('DB Offer');
+            expect(result[0]).toBeInstanceOf(OfferDto);
+        });
+    });
 
-        // Assert
-        expect(redisClient.get).toHaveBeenCalledWith('offers:all');
-        expect(offerRepository.findAllPublic).toHaveBeenCalled();
-        expect(redisClient.set).toHaveBeenCalled();
-        expect(result[0].name).toBe('DB Offer');
+    describe('getOfferById', () => {
+        it('doit retourner une offre si elle est trouvée', async () => {
+            // Arrange
+            offerRepository.findById.mockResolvedValue(mockOffer);
+
+            // Act
+            const result = await offerService.getOfferById('1');
+
+            // Assert
+            expect(offerRepository.findById).toHaveBeenCalledWith('1');
+            expect(result).toEqual(mockOffer);
+        });
+
+        it('doit lever une NotFoundException si l\'offre n\'est pas trouvée', async () => {
+            // Arrange
+            offerRepository.findById.mockResolvedValue(null);
+
+            // Act & Assert
+            await expect(offerService.getOfferById('non-existent-id')).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('createOffer', () => {
         it('doit invalider le cache après la création', async () => {
+            // Arrange
+            const offerData = { name: 'New Offer' };
+            offerRepository.create.mockResolvedValue({ offer_id: '2', ...offerData });
 
-        // Arrange
-        const offerData = { name: 'New Offer' };
-        offerRepository.create.mockResolvedValue({ offer_id: '2', ...offerData });
+            // Act
+            await offerService.createOffer(offerData);
 
-        // Act
-        await offerService.createOffer(offerData, mockAdminUser);
-
-        // Assert
-        expect(offerRepository.create).toHaveBeenCalledWith(offerData);
-        expect(redisClient.del).toHaveBeenCalledWith('offers:all');
+            // Assert
+            expect(offerRepository.create).toHaveBeenCalledWith(offerData);
+            expect(redisClient.del).toHaveBeenCalledWith('offers:all');
         });
     });
 
     describe('updateOffer', () => {
         it('doit invalider le cache après la mise à jour', async () => {
+            // Arrange
+            const offerId = '1';
+            const offerData = { name: 'Updated Offer' };
+            offerRepository.update.mockResolvedValue({ offer_id: offerId, ...offerData });
 
-        // Arrange
-        const offerId = '1';
-        const offerData = { name: 'Updated Offer' };
-        offerRepository.update.mockResolvedValue({ offer_id: offerId, ...offerData });
+            // Act
+            await offerService.updateOffer(offerId, offerData);
 
-        // Act
-        await offerService.updateOffer(offerId, offerData, mockAdminUser);
-
-        // Assert
-        expect(offerRepository.update).toHaveBeenCalledWith(offerId, offerData);
-        expect(redisClient.del).toHaveBeenCalledWith('offers:all');
+            // Assert
+            expect(offerRepository.update).toHaveBeenCalledWith(offerId, offerData);
+            expect(redisClient.del).toHaveBeenCalledWith('offers:all');
         });
 
         it('doit lever une NotFoundException si l\'offre à mettre à jour n\'existe pas', async () => {
-
             // Arrange
             offerRepository.update.mockResolvedValue(null);
-            const action = () => offerService.updateOffer('non-existent-id', {}, mockAdminUser);
-
+            
             // Act & Assert
-            await expect(action).rejects.toThrow(NotFoundException);
+            await expect(offerService.updateOffer('non-existent-id', {})).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('deleteOffer', () => {
         it('doit invalider le cache après la suppression', async () => {
+            // Arrange
+            const offerId = '1';
+            offerRepository.delete.mockResolvedValue({ offer_id: offerId });
 
-        // Arrange
-        const offerId = '1';
-        offerRepository.delete.mockResolvedValue({ offer_id: offerId });
+            // Act
+            await offerService.deleteOffer(offerId);
 
-        // Act
-        await offerService.deleteOffer(offerId, mockAdminUser);
-
-        // Assert
-        expect(offerRepository.delete).toHaveBeenCalledWith(offerId);
-        expect(redisClient.del).toHaveBeenCalledWith('offers:all');
+            // Assert
+            expect(offerRepository.delete).toHaveBeenCalledWith(offerId);
+            expect(redisClient.del).toHaveBeenCalledWith('offers:all');
         });
 
         it('doit lever une NotFoundException si l\'offre à supprimer n\'existe pas', async () => {
-
             // Arrange
             offerRepository.delete.mockResolvedValue(null);
-            const action = () => offerService.deleteOffer('non-existent-id', mockAdminUser);
             
             // Act & Assert
-            await expect(action).rejects.toThrow(NotFoundException);
+            await expect(offerService.deleteOffer('non-existent-id')).rejects.toThrow(NotFoundException);
         });
     });
 });
