@@ -9,15 +9,15 @@ import { testState } from './global.js';
 const execAsync = promisify(exec);
 
 /**
- * @file Script de configuration globale pour Jest.
- * @description Exécuté une seule fois avant toutes les suites de test.
- * Ce script prépare la base de données de test et démarre une instance unique
- * du serveur Express qui sera utilisée par tous les tests d'intégration.
- */
+ * @file Script de configuration globale pour Jest.
+ * @description Exécuté une seule fois avant toutes les suites de test.
+ * Ce script prépare la base de données de test, y active les extensions
+ * nécessaires, et démarre une instance unique du serveur Express.
+ */
 export default async () => {
-    
+
     // ========================================================================
-    // ==            ÉTAPE 1 : PRÉPARATION DE LA BASE DE DONNÉES             ==
+    // ==            ÉTAPE 1 : PRÉPARATION DE LA BASE DE DONNÉES             ==
     // ========================================================================
     logger.info('\nSetting up test database...');
 
@@ -34,24 +34,33 @@ export default async () => {
 
     try {
         await client.connect();
-        
+
         logger.info(`Dropping old test database '${dbName}' if it exists...`);
         await client.query(`DROP DATABASE IF EXISTS "${dbName}" WITH (FORCE);`);
 
         logger.info(`Creating new test database '${dbName}'...`);
         await client.query(`CREATE DATABASE "${dbName}";`);
         
-        logger.info('Test database created successfully.');
+        // Se déconnecte du client 'postgres' pour se reconnecter à la nouvelle BDD
+        await client.end();
+
+        // Se connecte à la BDD de test pour y activer l'extension
+        const testDbClient = new Client({ ...connectionConfig, database: dbName });
+        await testDbClient.connect();
+        logger.info('Enabling pgcrypto extension...');
+        await testDbClient.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
+        await testDbClient.end();
+
+        logger.info('Test database created and configured successfully.');
     } catch (error) {
         logger.error('Failed to set up test database:', error);
+        if (client.connected) await client.end(); // S'assurer que le client est fermé en cas d'erreur
         process.exit(1);
-    } finally {
-        await client.end();
     }
 
     try {
         logger.info('Running migrations on test database...');
-        
+
         const connectionString = `postgres://${connectionConfig.user}:${connectionConfig.password}@${connectionConfig.host}:${connectionConfig.port}/${dbName}`;
 
         await execAsync('npm run migrate up', {
@@ -68,7 +77,7 @@ export default async () => {
     }
 
     // ========================================================================
-    // ==          ÉTAPE 2 : DÉMARRAGE DU SERVEUR DE TEST GLOBAL             ==
+    // ==          ÉTAPE 2 : DÉMARRAGE DU SERVEUR DE TEST GLOBAL             ==
     // ========================================================================
     logger.info('Starting global test server...');
     const { app, server } = createTestApp();

@@ -1,22 +1,37 @@
 import authService from '../services/authService.js';
 
 /**
- * @file Gère les requêtes HTTP pour l'authentification des utilisateurs.
- * @description Ce contrôleur orchestre le processus de connexion pour les admins
- * et les techniciens en appelant le service d'authentification dédié.
+ * @file Gère les requêtes HTTP pour l'authentification.
+ * @description Ce contrôleur utilise des fonctions fléchées pour garantir que `this`
+ * est correctement lié à l'instance de la classe lorsqu'il est utilisé comme
+ * gestionnaire de route Express.
+ * @class AuthController
  */
 class AuthController {
     /**
-     * Gère la connexion d'un administrateur de compagnie.
-     * @param {object} req - L'objet de la requête Express.
-     * @param {object} res - L'objet de la réponse Express.
-     * @param {function} next - La fonction middleware suivante.
+     * @private
      */
-    async loginCompany(req, res, next) {
+    #sendRefreshTokenCookie(res, token) {
+        res.cookie('refreshToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+            path: '/api/auth'
+        });
+    }
+
+    /**
+     * Gère la connexion d'un administrateur de compagnie.
+     */
+    loginCompany = async (req, res, next) => { 
         try {
             const { email, password } = req.body;
-            const result = await authService.loginCompanyAdmin(email, password);
-            res.status(200).json(result);
+            const { user, accessToken, refreshToken } = await authService.loginCompanyAdmin(email, password);
+
+            this.#sendRefreshTokenCookie(res, refreshToken);
+
+            res.status(200).json({ accessToken, user });
         } catch (error) {
             next(error);
         }
@@ -24,15 +39,46 @@ class AuthController {
 
     /**
      * Gère la connexion d'un technicien.
-     * @param {object} req - L'objet de la requête Express.
-     * @param {object} res - L'objet de la réponse Express.
-     * @param {function} next - La fonction middleware suivante.
      */
-    async loginTechnician(req, res, next) {
+    loginTechnician = async (req, res, next) => { 
         try {
             const { email, password } = req.body;
-            const result = await authService.loginTechnician(email, password);
-            res.status(200).json(result);
+            const { user, accessToken, refreshToken } = await authService.loginTechnician(email, password);
+
+            this.#sendRefreshTokenCookie(res, refreshToken);
+
+            res.status(200).json({ accessToken, user });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Gère le rafraîchissement de l'accessToken.
+     */
+    refresh = async (req, res, next) => {
+        try {
+            const oldRefreshToken = req.cookies.refreshToken;
+            const { accessToken, refreshToken: newRefreshToken } = await authService.refreshTokens(oldRefreshToken);
+
+            this.#sendRefreshTokenCookie(res, newRefreshToken);
+            res.status(200).json({ accessToken });
+        } catch (error) {
+            res.clearCookie('refreshToken', { path: '/api/auth' });
+            next(error);
+        }
+    }
+
+    /**
+     * Gère la déconnexion de l'utilisateur.
+     */
+    logout = async (req, res, next) => { 
+        try {
+            const refreshToken = req.cookies.refreshToken;
+            await authService.logout(refreshToken);
+
+            res.clearCookie('refreshToken', { path: '/api/auth' });
+            res.status(204).send();
         } catch (error) {
             next(error);
         }

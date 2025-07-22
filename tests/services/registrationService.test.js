@@ -21,7 +21,8 @@ jest.unstable_mockModule('../../src/db/index.js', () => ({
 
 // Le mock de jwtUtils est nécessaire car le service l'appelle
 jest.unstable_mockModule('../../src/utils/jwtUtils.js', () => ({
-    generateToken: jest.fn(() => 'mock-jwt-token'),
+    generateAccessToken: jest.fn(() => 'mock-access-token'),
+    generateRefreshToken: jest.fn(() => 'mock-refresh-token'),
 }));
 
 
@@ -76,7 +77,7 @@ describe('RegistrationService', () => {
             expect(companyRepository.create).toHaveBeenCalledWith(registrationData.companyData, mockDbClient);
             expect(userRepository.create).toHaveBeenCalledWith(expect.objectContaining({ password_hash: 'hashed_password' }), mockDbClient);
             expect(mockDbClient.query).toHaveBeenCalledWith('COMMIT');
-            expect(result).toHaveProperty('token', 'mock-jwt-token');
+            expect(result).toHaveProperty('accessToken', 'mock-access-token');
             expect(result.user.email).toBe('admin@new.com');
             expect(mockDbClient.release).toHaveBeenCalled();
         });

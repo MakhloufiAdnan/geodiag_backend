@@ -49,13 +49,14 @@ describe('POST /api/register/company', () => {
 
         // Assert
         expect(response.statusCode).toBe(201);
-        expect(response.body).toHaveProperty('token');
+        expect(response.body).toHaveProperty('accessToken');
     });
 
     /**
      * @description Teste la gestion d'erreur lors d'une tentative d'inscription avec un email de compagnie déjà existant.
      */
     it("refuse l'inscription si l'email de la compagnie existe déjà (409 Conflict)", async () => {
+        
         // Arrange : Créer une première compagnie pour occuper l'email.
         const firstRegistration = {
             companyData: { name: "Existing Co", email: "co@conflict.com" },

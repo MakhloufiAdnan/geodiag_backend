@@ -18,6 +18,7 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { GraphQLError } from 'graphql';
 import logger from './src/config/logger.js';
+import cookieParser from 'cookie-parser';
 
 // ========================================================================
 // ==                      MODULES DE SÉCURITÉ GRAPHQL                   ==
@@ -106,6 +107,9 @@ async function startServer() {
 
     // --- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS ---
 
+    // Middleware pour parser les cookies, nécessaire pour la gestion des tokens JWT.
+    app.use(cookieParser());
+
     // Appliquer le logger contextuel en premier
     app.use(requestLogger);
 
@@ -173,7 +177,7 @@ async function startServer() {
 
         const token = authHeader.substring(7);
         try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
           if (!decoded.userId) return { dataloaders: createDataLoaders() };
 
           // Récupère les données utilisateur à jour pour chaque requête,

@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'http';
+import cookieParser from 'cookie-parser'; 
 import allRoutes from '../../src/routes/index.js'; 
 import { errorHandler } from '../../src/middleware/errorHandler.js';
 import { requestLogger } from '../../src/middleware/loggingMiddleware.js';
@@ -10,14 +11,16 @@ import { requestLogger } from '../../src/middleware/loggingMiddleware.js';
  */
 export const createTestApp = () => {
     const app = express();
+
+    // Ajoute le middleware cookie-parser pour que req.cookies soit disponible
+    app.use(cookieParser());
+    
     app.use(requestLogger);
     app.use(express.json());
     app.use('/api', allRoutes);
     app.use(errorHandler);
 
-    // Créer un serveur HTTP à partir de l'application Express
     const server = http.createServer(app);
 
-    // Retourner à la fois l'application (pour supertest) et le serveur (pour le fermer)
     return { app, server };
 };

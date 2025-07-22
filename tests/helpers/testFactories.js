@@ -1,9 +1,17 @@
+/**
+ * @file Fonctions utilitaires ("factories") pour créer des entités de test
+ * dans la base de données (compagnies, utilisateurs, etc.).
+ */
+
 import bcrypt from 'bcrypt';
 import { pool } from '../../src/db/index.js';
-import { generateToken } from '../../src/utils/jwtUtils.js';
+import { generateAccessToken } from '../../src/utils/jwtUtils.js';
 
 /**
  * Crée une compagnie de test et retourne son ID.
+ * @param {string} name - Le nom de la compagnie.
+ * @param {string} email - L'email de la compagnie.
+ * @returns {Promise<string>} L'ID de la compagnie créée.
  */
 export const createTestCompany = async (name, email) => {
     const res = await pool.query(
@@ -14,7 +22,11 @@ export const createTestCompany = async (name, email) => {
 };
 
 /**
- * Crée un utilisateur de test (admin ou technician) et retourne son ID et son token.
+ * Crée un utilisateur de test (admin ou technician) et retourne son ID et son accessToken.
+ * @param {string} companyId - L'ID de la compagnie parente.
+ * @param {'admin' | 'technician'} role - Le rôle de l'utilisateur.
+ * @param {string} email - L'email de l'utilisateur.
+ * @returns {Promise<{userId: string, token: string}>} L'ID de l'utilisateur et son accessToken.
  */
 export const createTestUser = async (companyId, role, email) => {
     const password = await bcrypt.hash('password123', 10);
@@ -23,6 +35,6 @@ export const createTestUser = async (companyId, role, email) => {
         [companyId, email, password, role]
     );
     const userId = res.rows[0].user_id;
-    const token = generateToken({ userId, companyId, role });
+    const token = generateAccessToken({ userId, companyId, role });
     return { userId, token };
 };

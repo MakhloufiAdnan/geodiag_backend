@@ -2,7 +2,7 @@ import companyRepository from '../repositories/companyRepository.js';
 import userRepository from '../repositories/userRepository.js';
 import bcrypt from 'bcrypt';
 import { pool } from '../db/index.js'; 
-import { generateToken } from '../utils/jwtUtils.js';
+import { generateAccessToken, generateRefreshToken } from '../utils/jwtUtils.js';
 import { UserDto } from '../dtos/userDto.js'; 
 import { ConflictException, BadRequestException } from '../exceptions/apiException.js';
 
@@ -54,11 +54,12 @@ class RegistrationService {
             }, client);
 
             const payload = { userId: newAdmin.user_id, companyId: newCompany.company_id, role: newAdmin.role };
-            const token = generateToken(payload);
+            const accessToken = generateAccessToken(payload);
+            const refreshToken = generateRefreshToken(payload);
             
             await client.query('COMMIT');
 
-            return { token, user: new UserDto(newAdmin), company: newCompany };
+            return { accessToken, refreshToken, user: new UserDto(newAdmin), company: newCompany };
         } catch (e) {
             await client.query('ROLLBACK');
             
