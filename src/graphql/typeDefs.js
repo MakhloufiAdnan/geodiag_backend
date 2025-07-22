@@ -46,8 +46,9 @@ export const typeDefs = `#graphql
 
     # --- TYPES SPÉCIFIQUES AUX OPÉRATIONS ---
 
+    # "token" a été renommé "accessToken" pour plus de précision.
     type AuthPayload {
-        token: String!
+        accessToken: String!
         user: User!
     }
     

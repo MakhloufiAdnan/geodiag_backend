@@ -42,13 +42,13 @@ export const up = (pgm) => {
     CREATE TYPE submission_status AS ENUM ('new', 'read', 'archived');
     CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer');
     CREATE TYPE vehicle_image_category AS ENUM ('front_axle', 'rear_axle', 'vin_plate', 'damage', 'other');
-
+    
     -- TYPE POUR LA FILE D'ATTENTE DES TÂCHES
     CREATE TYPE job_status AS ENUM ('pending', 'in_progress', 'completed', 'failed');
 
 
     -- ########## 2. TABLES PRINCIPALES (COEUR DE L'APPLICATION) ##########
-
+    
     CREATE TABLE companies (
         company_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name VARCHAR(255) NOT NULL,
@@ -121,15 +121,17 @@ export const up = (pgm) => {
         stripe_subscription_id VARCHAR(255) UNIQUE, 
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
+    
     CREATE TABLE refresh_tokens (
         token_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
         token_hash VARCHAR(255) NOT NULL,
+        family_id UUID NOT NULL,
+        is_revoked BOOLEAN NOT NULL DEFAULT false,
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
+    
 
     -- ########## 3. TABLES DE DONNÉES (VÉHICULES & MESURES) ##########
 
@@ -154,7 +156,7 @@ export const up = (pgm) => {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TRIGGER set_timestamp_models BEFORE UPDATE ON models FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
-
+    
     CREATE TABLE vehicles (
         vehicle_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         model_id UUID NOT NULL REFERENCES models(model_id) ON DELETE RESTRICT,
@@ -171,7 +173,7 @@ export const up = (pgm) => {
     );
     CREATE TRIGGER set_timestamp_vehicles BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
     CREATE TRIGGER set_version_vehicles BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE PROCEDURE trigger_increment_version(); 
-
+    
     CREATE TABLE measurement_reports (
         report_id UUID PRIMARY KEY, 
         vehicle_id UUID NOT NULL REFERENCES vehicles(vehicle_id) ON DELETE CASCADE,
@@ -182,7 +184,7 @@ export const up = (pgm) => {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TRIGGER set_version_reports BEFORE UPDATE ON measurement_reports FOR EACH ROW EXECUTE PROCEDURE trigger_increment_version(); 
-
+    
     CREATE TABLE measurement_definitions (
         definition_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         code VARCHAR(100) UNIQUE NOT NULL,
@@ -190,7 +192,7 @@ export const up = (pgm) => {
         unit VARCHAR(20) NOT NULL,
         description TEXT
     );
-
+    
     CREATE TABLE measurement_values (
         value_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         report_id UUID NOT NULL REFERENCES measurement_reports(report_id) ON DELETE CASCADE,
@@ -201,7 +203,7 @@ export const up = (pgm) => {
         status measurement_value_status NOT NULL,
         sensor_raw_data JSONB
     );
-
+    
     CREATE TABLE vehicle_images (
         image_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         vehicle_id UUID NOT NULL REFERENCES vehicles(vehicle_id) ON DELETE CASCADE,
@@ -210,7 +212,7 @@ export const up = (pgm) => {
         description TEXT,
         uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
+    
     CREATE TABLE interpretation_rules (
         rule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         model_id UUID REFERENCES models(model_id) ON DELETE SET NULL,
@@ -220,9 +222,9 @@ export const up = (pgm) => {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-
+    
     -- ########## 4. TABLES POUR LE SITE WEB (SUPPORT, CONTACT) ##########
-
+    
     CREATE TABLE contact_submissions (
         submission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         sender_name VARCHAR(255) NOT NULL,
@@ -233,7 +235,7 @@ export const up = (pgm) => {
         submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         user_id UUID REFERENCES users(user_id) ON DELETE SET NULL
     );
-
+    
     CREATE TABLE support_tickets (
         ticket_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         company_id UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -246,7 +248,7 @@ export const up = (pgm) => {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TRIGGER set_timestamp_support_tickets BEFORE UPDATE ON support_tickets FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
-
+    
     CREATE TABLE ticket_messages (
         message_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         ticket_id UUID NOT NULL REFERENCES support_tickets(ticket_id) ON DELETE CASCADE,
@@ -257,7 +259,7 @@ export const up = (pgm) => {
 
 
     -- ########## 5. TABLES POUR LA GESTION AVANCÉE (OFFLINE, WEBHOOKS, TÂCHES) ##########
-
+    
     CREATE TABLE offline_data_cache (
         user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
         manufacturer_data_id UUID NOT NULL REFERENCES manufacturer_data(manufacturer_data_id) ON DELETE CASCADE,
@@ -285,7 +287,7 @@ export const up = (pgm) => {
     CREATE TRIGGER set_timestamp_jobs BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
     
     -- ########## 6. INDEX POUR L'OPTIMISATION DES REQUÊTES ##########
-
+    
     -- Index de base
     CREATE INDEX idx_users_email ON users(email);
     CREATE INDEX idx_licenses_qr_code ON licenses(qr_code_payload);
@@ -304,20 +306,20 @@ export const up = (pgm) => {
     CREATE INDEX idx_interpretation_rules_definition_id ON interpretation_rules(measurement_definition_id);
     CREATE INDEX idx_measurement_reports_vehicle_id ON measurement_reports(vehicle_id);
     CREATE INDEX idx_measurement_reports_user_id ON measurement_reports(user_id);
-
+    
     -- Index pour les recherches sur les ID Stripe
     CREATE INDEX idx_companies_stripe_customer_id ON companies(stripe_customer_id);
     CREATE INDEX idx_licenses_stripe_subscription_id ON licenses(stripe_subscription_id);
     CREATE INDEX idx_orders_stripe_payment_intent_id ON orders(stripe_payment_intent_id);
-
+    
     -- Index composite pour la recherche d'historique (technicien + véhicule)
     CREATE INDEX idx_reports_user_vehicle ON measurement_reports(user_id, vehicle_id);
-
-    -- Index avancés (recommandations d'audit)
+    
+    -- ############ MISE À JOUR SÉCURITÉ ############
+    CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens(family_id);
     CREATE INDEX idx_vehicles_options_gin ON vehicles USING GIN (options);
     CREATE INDEX idx_licenses_active ON licenses(company_id) WHERE status = 'active';
     
-    -- NOUVEAUX INDEX POUR LA FILE D'ATTENTE DES TÂCHES
     -- Pour trouver rapidement les tâches en attente à traiter
     CREATE INDEX idx_jobs_pending ON jobs(status, created_at) WHERE status = 'pending';
     `);
@@ -331,6 +333,7 @@ export const up = (pgm) => {
 export const down = (pgm) => {
     pgm.sql(`
     -- ########## 6. SUPPRESSION DES INDEX ##########
+    DROP INDEX IF EXISTS idx_refresh_tokens_family_id;
     DROP INDEX IF EXISTS idx_users_email;
     DROP INDEX IF EXISTS idx_licenses_qr_code;
     DROP INDEX IF EXISTS idx_vehicles_registration;
@@ -352,12 +355,12 @@ export const down = (pgm) => {
     DROP INDEX IF EXISTS idx_reports_user_vehicle;
     DROP INDEX IF EXISTS idx_vehicles_options_gin;
     DROP INDEX IF EXISTS idx_licenses_active;
-    -- NOUVEAU : Suppression de l'index de la file d'attente
+    -- Suppression de l'index de la file d'attente
     DROP INDEX IF EXISTS idx_jobs_pending;
 
     -- ########## 5. SUPPRESSION DES TABLES (ORDRE INVERSE DE CRÉATION) ##########
-
-    -- NOUVEAU : Suppression des tables pour la gestion avancée
+    
+    -- Suppression des tables pour la gestion avancée
     DROP TABLE IF EXISTS jobs;
     DROP TABLE IF EXISTS processed_webhook_events;
     DROP TABLE IF EXISTS offline_data_cache;
@@ -377,10 +380,10 @@ export const down = (pgm) => {
     DROP TABLE IF EXISTS models;
     DROP TABLE IF EXISTS manufacturer_data;
     DROP TABLE IF EXISTS brands;
-
+    
     -- Table pour la gestion des sessions
     DROP TABLE IF EXISTS refresh_tokens;
-
+    
     -- Tables principales (Coeur de l'application)
     DROP TABLE IF EXISTS licenses;
     DROP TABLE IF EXISTS payments;
@@ -390,7 +393,7 @@ export const down = (pgm) => {
     DROP TABLE IF EXISTS companies;
 
     -- ########## 2. SUPPRESSION DES TYPES ENUMÉRÉS ##########
-    -- NOUVEAU : Suppression du type pour la file d'attente
+    -- Suppression du type pour la file d'attente
     DROP TYPE IF EXISTS job_status;
     DROP TYPE IF EXISTS vehicle_image_category;
     DROP TYPE IF EXISTS payment_method;
