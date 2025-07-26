@@ -1,17 +1,31 @@
-/** @type {import('jest').Config} */
+/**
+ * @file Configuration centrale pour le framework de test Jest.
+ * @see https://jestjs.io/docs/configuration
+ * @type {import('jest').Config}
+ */
 const config = {
-    
-    // Indique à Jest d'exécuter ce script une seule fois avant de lancer les tests.
+    /**
+     * Un script qui s'exécute une seule fois avant le lancement de toutes les suites de test.
+     * Idéal pour initialiser un environnement de test (ex: créer une base de données de test).
+     */
     globalSetup: './tests/jest.setup.js',
 
-    // Indique à Jest d'exécuter ce script une seule fois après la fin de tous les tests.
+    /**
+     * Un script qui s'exécute une seule fois après la fin de toutes les suites de test.
+     * Idéal pour nettoyer l'environnement (ex: fermer les connexions à la base de données).
+     */
     globalTeardown: './tests/jest.teardown.js',
-    
-    // Jest arrêtera de chercher des configurations dans les dossiers parents.
+
+    /**
+     * Indique que le dossier courant est la racine du projet.
+     */
     rootDir: '.',
 
-    // Transformation nécessaire pour que Jest gère correctement les modules ES6.
-    transform: {}, 
+    /**
+     * Configuration pour la transformation des fichiers.
+     * Vide ici car nous utilisons les modules ES6 nativement avec Node.js.
+     */
+    transform: {},
 };
 
 export default config;

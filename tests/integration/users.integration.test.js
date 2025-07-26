@@ -1,23 +1,19 @@
-import { describe, it, expect, beforeEach } from '@jest/globals';
-import request from 'supertest';
-import { pool } from '../../src/db/index.js';
-import redisClient from '../../src/config/redisClient.js';
-import { createTestCompany, createTestUser } from '../helpers/testFactories.js';
-
 /**
  * @file Tests d'intégration pour les routes de gestion des utilisateurs (/api/users).
- * @see L'application de test est initialisée globalement dans jest.setup.js et accessible via `global.testApp`.
  */
+import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { pool } from '../../src/db/index.js';
+import { createTestCompany, createTestUser } from '../helpers/testFactories.js';
+import { setupIntegrationTest } from '../helpers/integrationTestSetup.js';
+import redisClient from '../../src/config/redisClient.js';
+
 describe('/api/users', () => {
+    const getAgent = setupIntegrationTest();
+    let agent;
     let adminToken, technicianToken, technicianId;
 
-    /**
-     * @description Prépare la base de données avec des utilisateurs de test avant chaque test.
-     * Nettoie PostgreSQL ET Redis pour garantir une isolation parfaite des tests.
-     */
     beforeEach(async () => {
-        
-        // Nettoye les deux sources de données en parallèle
+        agent = getAgent();
         await Promise.all([
             pool.query('TRUNCATE TABLE companies, users RESTART IDENTITY CASCADE'),
             redisClient.flushall()
@@ -31,25 +27,17 @@ describe('/api/users', () => {
         technicianId = tech.userId;
     });
 
-    /**
-     * @description Ferme le serveur à la fin des tests.
-     */
     afterAll(async () => {
-
-        // Fermer le pool de connexions à la base de données
         await pool.end();
+        await redisClient.quit();
     });
 
     describe('GET /api/users', () => {
-        
-        /**
-         * @description Vérifie qu'un admin peut obtenir la liste de tous les utilisateurs.
-         */
         it('retourne la liste paginée des utilisateurs pour un admin (200 OK)', async () => {
-
             // Arrange : Token admin prêt.
+            
             // Act
-            const response = await request(global.testApp)
+            const response = await agent
                 .get('/api/users')
                 .set('Authorization', `Bearer ${adminToken}`);
             
@@ -59,14 +47,11 @@ describe('/api/users', () => {
             expect(response.body).toHaveProperty('meta');
         });
 
-        /**
-         * @description Vérifie qu'un utilisateur non-admin (technicien) ne peut pas lister les utilisateurs.
-         */
         it('refuse l\'accès à la liste pour un non-admin (403 Forbidden)', async () => {
-
             // Arrange : Token technicien prêt.
+
             // Act
-            const response = await request(global.testApp)
+            const response = await agent
                 .get('/api/users')
                 .set('Authorization', `Bearer ${technicianToken}`);
             
@@ -76,14 +61,11 @@ describe('/api/users', () => {
     });
 
     describe('GET /api/users/:id', () => {
-
-        /**
-         * @description Vérifie qu'un utilisateur peut consulter son propre profil.
-         */
         it('autorise un technicien à voir son propre profil (200 OK)', async () => {
             // Arrange : ID et token du technicien sont prêts.
+
             // Act
-            const response = await request(global.testApp)
+            const response = await agent
                 .get(`/api/users/${technicianId}`)
                 .set('Authorization', `Bearer ${technicianToken}`);
 

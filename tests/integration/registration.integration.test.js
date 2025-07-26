@@ -1,41 +1,29 @@
-import { describe, it, expect, beforeEach } from '@jest/globals';
-import request from 'supertest';
-import { pool } from '../../src/db/index.js';
-import redisClient from '../../src/config/redisClient.js'; 
-
 /**
  * @file Tests d'intégration pour le flux d'inscription (/api/register).
- * @see L'application de test est initialisée globalement dans jest.setup.js et accessible via `global.testApp`.
  */
+import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { pool } from '../../src/db/index.js';
+import { setupIntegrationTest } from '../helpers/integrationTestSetup.js';
+import redisClient from '../../src/config/redisClient.js';
+
 describe('POST /api/register/company', () => {
+    const getAgent = setupIntegrationTest();
+    let agent;
 
-    /**
-     * @description Prépare la base de données avec des utilisateurs de test avant chaque test.
-     * Nettoie PostgreSQL ET Redis pour garantir une isolation parfaite des tests.
-     */
     beforeEach(async () => {
-
-        // Nettoye les deux sources de données en parallèle
+        agent = getAgent();
         await Promise.all([
             pool.query('TRUNCATE TABLE companies, users RESTART IDENTITY CASCADE'),
             redisClient.flushall()
         ]);
     });
 
-    /**
-     * @description Ferme le serveur à la fin des tests.
-     */
     afterAll(async () => {
-
-        // Fermer le pool de connexions à la base de données
         await pool.end();
+        await redisClient.quit();
     });
 
-    /**
-     * @description Teste un scénario d'inscription réussi pour une nouvelle compagnie et son admin.
-     */
     it('crée une compagnie et un admin, et retourne un token (201 Created)', async () => {
-        
         // Arrange
         const newRegistration = {
             companyData: { name: "Register Co", email: "co@register-test.com" },
@@ -43,7 +31,7 @@ describe('POST /api/register/company', () => {
         };
 
         // Act
-        const response = await request(global.testApp)
+        const response = await agent
             .post('/api/register/company')
             .send(newRegistration);
 
@@ -52,17 +40,13 @@ describe('POST /api/register/company', () => {
         expect(response.body).toHaveProperty('accessToken');
     });
 
-    /**
-     * @description Teste la gestion d'erreur lors d'une tentative d'inscription avec un email de compagnie déjà existant.
-     */
     it("refuse l'inscription si l'email de la compagnie existe déjà (409 Conflict)", async () => {
-        
         // Arrange : Créer une première compagnie pour occuper l'email.
         const firstRegistration = {
             companyData: { name: "Existing Co", email: "co@conflict.com" },
             adminData: { email: "admin1@conflict.com", password: "password123", first_name: "Admin", last_name: "One" }
         };
-        await request(global.testApp).post('/api/register/company').send(firstRegistration);
+        await agent.post('/api/register/company').send(firstRegistration);
         
         const conflictingRegistration = {
             companyData: { name: "Another Co", email: "co@conflict.com" }, // <-- Email en conflit
@@ -70,7 +54,7 @@ describe('POST /api/register/company', () => {
         };
 
         // Act : Tenter d'enregistrer la deuxième compagnie.
-        const response = await request(global.testApp)
+        const response = await agent
             .post('/api/register/company')
             .send(conflictingRegistration);
 

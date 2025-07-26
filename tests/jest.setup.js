@@ -3,8 +3,6 @@ import logger from '../src/config/logger.js';
 import { Client } from 'pg';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { createTestApp } from './helpers/app.js';
-import { testState } from './global.js';
 
 const execAsync = promisify(exec);
 
@@ -17,8 +15,8 @@ const execAsync = promisify(exec);
 export default async () => {
 
     // ========================================================================
-    // ==            ÉTAPE 1 : PRÉPARATION DE LA BASE DE DONNÉES             ==
-    // ========================================================================
+    //  PRÉPARATION DE LA BASE DE DONNÉES  
+    // ========================================================================           
     logger.info('\nSetting up test database...');
 
     const dbName = 'geodiag_test_db';
@@ -75,18 +73,4 @@ export default async () => {
         console.error('Failed to run migrations:', error);
         process.exit(1);
     }
-
-    // ========================================================================
-    // ==          ÉTAPE 2 : DÉMARRAGE DU SERVEUR DE TEST GLOBAL             ==
-    // ========================================================================
-    logger.info('Starting global test server...');
-    const { app, server } = createTestApp();
-
-    // Stocke les instances du serveur et de l'app pour pouvoir les fermer dans le teardown
-    testState.app = app;
-    testState.server = server;
-
-    // Expose l'instance de l'app comme une variable globale pour un accès facile dans les tests
-    global.testApp = app;
-    logger.info('Global test server started successfully.');
 };

@@ -1,29 +1,27 @@
+/**
+ * @file Point d'entrée pour la connexion à la base de données.
+ * @description Ce module initialise et exporte le pool de connexions PostgreSQL.
+ * Il utilise une configuration unique qui s'adapte à l'environnement (test, dev, prod).
+ */
 import pg from 'pg';
-import devConfig from '../config/database.js';
-import testConfig from '../config/testDatabase.js';
+import dbConfig from '../config/database.js';
 
-let config;
+let finalConfig = dbConfig;
 
-if (process.env.NODE_ENV === 'test') {
-
-    // Priorité à DATABASE_URL pour le CI/CD
-    if (process.env.DATABASE_URL) {
-        config = { connectionString: process.env.DATABASE_URL };
-    } else {
-
-    // Sinon, utilise la configuration locale pour les tests
-        config = testConfig;
-    }
-} else {
-    
-    // Configuration pour le développement ou la production
-    config = devConfig;
+if (process.env.NODE_ENV === 'test' && process.env.DATABASE_URL) {
+    finalConfig = { connectionString: process.env.DATABASE_URL };
 }
 
-// Création du pool de connexions
-const pool = new pg.Pool(config);
+/**
+ * @description Pool de connexions PostgreSQL.
+ * Utilise la configuration finale déterminée ci-dessus.
+ * @type {pg.Pool}
+ */
+const pool = new pg.Pool(finalConfig);
 
-// Exportation de l'objet 'db' pour les requêtes simples (optionnel)
+/**
+ * @description Objet utilitaire pour exécuter des requêtes simples.
+ */
 export const db = {
     query: (text, params) => pool.query(text, params),
 };
