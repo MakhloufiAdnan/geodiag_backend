@@ -1,4 +1,4 @@
-import paymentService from "../services/paymentService.js";
+import paymentService from '../services/paymentService.js';
 
 /**
  * @file Gestionnaire pour la tâche de traitement d'un paiement réussi.

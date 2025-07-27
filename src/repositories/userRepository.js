@@ -1,4 +1,4 @@
-import { db } from "../db/index.js";
+import { db } from '../db/index.js';
 
 /**
  * @file Gère l'accès et la manipulation des données pour l'entité User.
@@ -12,7 +12,7 @@ class UserRepository {
    */
   async findAll(limit, offset) {
     const { rows } = await db.query(
-      "SELECT * FROM users ORDER BY last_name, first_name LIMIT $1 OFFSET $2",
+      'SELECT * FROM users ORDER BY last_name, first_name LIMIT $1 OFFSET $2',
       [limit, offset]
     );
     return rows;
@@ -23,7 +23,7 @@ class UserRepository {
    * @returns {Promise<number>} Le nombre total d'utilisateurs.
    */
   async countAll() {
-    const { rows } = await db.query("SELECT COUNT(*) FROM users");
+    const { rows } = await db.query('SELECT COUNT(*) FROM users');
     return parseInt(rows[0].count, 10);
   }
 
@@ -33,7 +33,7 @@ class UserRepository {
    * @returns {Promise<object|undefined>} L'objet utilisateur s'il est trouvé.
    */
   async findById(id) {
-    const { rows } = await db.query("SELECT * FROM users WHERE user_id = $1", [
+    const { rows } = await db.query('SELECT * FROM users WHERE user_id = $1', [
       id,
     ]);
     return rows[0];
@@ -45,7 +45,7 @@ class UserRepository {
    * @returns {Promise<object|undefined>} L'objet utilisateur s'il est trouvé.
    */
   async findByEmail(email) {
-    const { rows } = await db.query("SELECT * FROM users WHERE email = $1", [
+    const { rows } = await db.query('SELECT * FROM users WHERE email = $1', [
       email,
     ]);
     return rows[0];
@@ -76,11 +76,11 @@ class UserRepository {
    */
   async update(id, userData) {
     const updatableFields = [
-      "first_name",
-      "last_name",
-      "email",
-      "role",
-      "is_active",
+      'first_name',
+      'last_name',
+      'email',
+      'role',
+      'is_active',
     ];
     const fieldsToUpdate = Object.keys(userData).filter((key) =>
       updatableFields.includes(key)
@@ -89,7 +89,7 @@ class UserRepository {
 
     const setClause = fieldsToUpdate
       .map((key, index) => `"${key}" = $${index + 1}`)
-      .join(", ");
+      .join(', ');
     const values = fieldsToUpdate.map((key) => userData[key]);
     const queryParams = [...values, id];
 
@@ -107,7 +107,7 @@ class UserRepository {
    */
   async delete(id) {
     const { rows } = await db.query(
-      "DELETE FROM users WHERE user_id = $1 RETURNING *",
+      'DELETE FROM users WHERE user_id = $1 RETURNING *',
       [id]
     );
     return rows[0];

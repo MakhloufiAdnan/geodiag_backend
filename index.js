@@ -11,6 +11,7 @@
 // ========================================================================
 import "dotenv/config";
 import express from "express";
+import helmet from 'helmet';
 import http from "http";
 import cors from "cors";
 import jwt from "jsonwebtoken";
@@ -110,6 +111,9 @@ async function startServer() {
     await apolloServer.start();
 
     // --- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS ---
+    
+    // Il ajoute des en-têtes de sécurité à TOUTES les réponses.
+    app.use(helmet());
 
     // Middleware pour parser les cookies, nécessaire pour la gestion des tokens JWT.
     app.use(cookieParser());

@@ -1,26 +1,26 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import { mockOrder, mockOffer, mockLicense } from "../../mocks/mockData.js";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { mockOrder, mockOffer, mockLicense } from '../../mocks/mockData.js';
 
 /**
  * @file Tests unitaires pour LicenseService.
  */
-jest.unstable_mockModule("../../src/repositories/licenseRepository.js", () => ({
+jest.unstable_mockModule('../../src/repositories/licenseRepository.js', () => ({
   default: { create: jest.fn() },
 }));
 
 const { default: licenseRepository } = await import(
-  "../../src/repositories/licenseRepository.js"
+  '../../src/repositories/licenseRepository.js'
 );
 const { default: licenseService } = await import(
-  "../../src/services/licenseService.js"
+  '../../src/services/licenseService.js'
 );
 
-describe("LicenseService", () => {
+describe('LicenseService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("createLicenseForOrder", () => {
+  describe('createLicenseForOrder', () => {
     it("doit calculer la date d'expiration et générer un QR code", async () => {
       // Arrange
       licenseRepository.create.mockResolvedValue(mockLicense);
@@ -37,7 +37,7 @@ describe("LicenseService", () => {
       const createCallArg = licenseRepository.create.mock.calls[0][0];
 
       expect(createCallArg.order_id).toBe(mockOrder.order_id);
-      expect(createCallArg.status).toBe("active");
+      expect(createCallArg.status).toBe('active');
       expect(createCallArg.expires_at.getTime()).toBeCloseTo(
         expectedExpiration.getTime(),
         -4

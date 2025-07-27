@@ -24,9 +24,9 @@ export const createPaginatedResponse = ({
 
   // Construit l'URL avec les paramètres de pagination
   const buildUrl = (pageNumber) => {
-    const url = new URL(baseUrl, "http://localhost"); // Le domaine est factice, juste pour la construction
-    url.searchParams.set("page", pageNumber);
-    url.searchParams.set("limit", limit);
+    const url = new URL(baseUrl, 'http://localhost'); // Le domaine est factice, juste pour la construction
+    url.searchParams.set('page', pageNumber);
+    url.searchParams.set('limit', limit);
     return `${url.pathname}${url.search}`; // Retourne le chemin avec les query params (ex: /api/users?page=2&limit=10)
   };
 

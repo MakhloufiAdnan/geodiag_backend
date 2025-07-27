@@ -5,7 +5,7 @@
  * @returns Un middleware Express.
  */
 export const validate =
-  (schema, property = "body") =>
+  (schema, property = 'body') =>
   (req, res, next) => {
     // Valide la propriété de la requête spécifiée (req.body par défaut)
     const { error } = schema.validate(req[property]);

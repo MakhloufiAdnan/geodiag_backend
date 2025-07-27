@@ -1,6 +1,6 @@
-import nodemailer from "nodemailer";
-import { ApiException } from "../exceptions/apiException.js";
-import logger from "../config/logger.js";
+import nodemailer from 'nodemailer';
+import { ApiException } from '../exceptions/apiException.js';
+import logger from '../config/logger.js';
 
 /**
  * @file Gère l'envoi d'emails transactionnels via un transporteur SMTP.
@@ -35,7 +35,7 @@ class EmailService {
       html: `<h1>Bonjour ${company.name},</h1>
                    <p>Votre licence est désormais active et sera valide jusqu'au <strong>${new Date(
                      license.expires_at
-                   ).toLocaleDateString("fr-FR")}</strong>.</p>
+                   ).toLocaleDateString('fr-FR')}</strong>.</p>
                    <p>Votre QR code d'activation est : <strong>${
                      license.qr_code_payload
                    }</strong></p>
@@ -45,7 +45,7 @@ class EmailService {
         {
           filename: `facture-geodiag-${license.order_id}.pdf`,
           content: invoicePdfBuffer,
-          contentType: "application/pdf",
+          contentType: 'application/pdf',
         },
       ],
     };
@@ -53,7 +53,7 @@ class EmailService {
       await this.transporter.sendMail(mailOptions);
       logger.info(
         { to: company.email, orderId: license.order_id },
-        "✅ Email de confirmation envoyé avec succès."
+        '✅ Email de confirmation envoyé avec succès.'
       );
     } catch (error) {
       logger.error(

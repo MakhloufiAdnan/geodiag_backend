@@ -1,4 +1,4 @@
-import { db } from "../db/index.js";
+import { db } from '../db/index.js';
 
 /**
  * @file Gère l'accès et la manipulation des données pour l'entité License.

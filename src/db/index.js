@@ -3,12 +3,12 @@
  * @description Ce module initialise et exporte le pool de connexions PostgreSQL.
  * Il utilise une configuration unique qui s'adapte à l'environnement (test, dev, prod).
  */
-import pg from "pg";
-import dbConfig from "../config/database.js";
+import pg from 'pg';
+import dbConfig from '../config/database.js';
 
 let finalConfig = dbConfig;
 
-if (process.env.NODE_ENV === "test" && process.env.DATABASE_URL) {
+if (process.env.NODE_ENV === 'test' && process.env.DATABASE_URL) {
   finalConfig = { connectionString: process.env.DATABASE_URL };
 }
 

@@ -1,4 +1,4 @@
-import paymentService from "../services/paymentService.js";
+import paymentService from '../services/paymentService.js';
 
 /**
  * @file Gère les requêtes HTTP pour l'initiation d'un paiement.

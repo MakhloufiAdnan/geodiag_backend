@@ -1,4 +1,4 @@
-import vehicleService from "../services/vehicleService.js";
+import vehicleService from '../services/vehicleService.js';
 
 /**
  * @file Gère les requêtes HTTP pour l'entité "Vehicle".

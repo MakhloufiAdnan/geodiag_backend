@@ -21,35 +21,35 @@ export class ApiException extends Error {
 
 /** Erreur pour les ressources non trouvées (404) */
 export class NotFoundException extends ApiException {
-  constructor(message = "Ressource non trouvée") {
+  constructor(message = 'Ressource non trouvée') {
     super(404, message);
   }
 }
 
 /** Erreur pour les requêtes mal formées (400) */
 export class BadRequestException extends ApiException {
-  constructor(message = "Requête invalide") {
+  constructor(message = 'Requête invalide') {
     super(400, message);
   }
 }
 
 /** Erreur pour les problèmes d'authentification (401) */
 export class UnauthorizedException extends ApiException {
-  constructor(message = "Accès non autorisé") {
+  constructor(message = 'Accès non autorisé') {
     super(401, message);
   }
 }
 
 /** Erreur pour les problèmes de permissions (403) */
 export class ForbiddenException extends ApiException {
-  constructor(message = "Accès refusé") {
+  constructor(message = 'Accès refusé') {
     super(403, message);
   }
 }
 
 /** Erreur pour les conflits (ex: ressource déjà existante) (409) */
 export class ConflictException extends ApiException {
-  constructor(message = "La ressource existe déjà.") {
+  constructor(message = 'La ressource existe déjà.') {
     super(409, message);
   }
 }

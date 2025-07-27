@@ -1,4 +1,4 @@
-import { db } from "../db/index.js";
+import { db } from '../db/index.js';
 
 /**
  * @file Gère l'accès et la manipulation des données pour l'entité Offer.
@@ -11,7 +11,7 @@ class OfferRepository {
    */
   async findById(id) {
     const { rows } = await db.query(
-      "SELECT * FROM offers WHERE offer_id = $1",
+      'SELECT * FROM offers WHERE offer_id = $1',
       [id]
     );
     return rows[0];
@@ -23,7 +23,7 @@ class OfferRepository {
    */
   async findAllPublic() {
     const { rows } = await db.query(
-      "SELECT * FROM offers WHERE is_public = true ORDER BY price"
+      'SELECT * FROM offers WHERE is_public = true ORDER BY price'
     );
     return rows;
   }
@@ -35,7 +35,7 @@ class OfferRepository {
    */
   async findByIds(ids) {
     const { rows } = await db.query(
-      "SELECT * FROM offers WHERE offer_id = ANY($1::uuid[])",
+      'SELECT * FROM offers WHERE offer_id = ANY($1::uuid[])',
       [ids]
     );
     return rows;

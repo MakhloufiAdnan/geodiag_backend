@@ -1,4 +1,4 @@
-import { pool } from "../db/index.js";
+import { pool } from '../db/index.js';
 
 /**
  * @file Gère l'accès aux données pour les événements de webhook traités.
@@ -14,7 +14,7 @@ class ProcessedWebhookRepository {
    */
   async findById(eventId, dbClient = pool) {
     const result = await dbClient.query(
-      "SELECT event_id FROM processed_webhook_events WHERE event_id = $1",
+      'SELECT event_id FROM processed_webhook_events WHERE event_id = $1',
       [eventId]
     );
     return result.rows;
@@ -28,7 +28,7 @@ class ProcessedWebhookRepository {
    */
   async create(eventId, dbClient) {
     const result = await dbClient.query(
-      "INSERT INTO processed_webhook_events (event_id) VALUES ($1) RETURNING event_id",
+      'INSERT INTO processed_webhook_events (event_id) VALUES ($1) RETURNING event_id',
       [eventId]
     );
     return result.rows;

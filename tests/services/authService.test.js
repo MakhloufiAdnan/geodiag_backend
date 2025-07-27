@@ -1,8 +1,6 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import {
-  UnauthorizedException,
-} from "../../src/exceptions/apiException.js";
-import { mockAdminUser, mockTechnicianUser } from "../../mocks/mockData.js";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { UnauthorizedException } from '../../src/exceptions/apiException.js';
+import { mockAdminUser, mockTechnicianUser } from '../../mocks/mockData.js';
 
 /**
  * @file Tests unitaires complets pour AuthService.
@@ -11,14 +9,14 @@ import { mockAdminUser, mockTechnicianUser } from "../../mocks/mockData.js";
  */
 
 // Mocker toutes les dépendances pour isoler le service
-jest.unstable_mockModule("../../src/repositories/userRepository.js", () => ({
+jest.unstable_mockModule('../../src/repositories/userRepository.js', () => ({
   default: { findByEmail: jest.fn(), findById: jest.fn() },
 }));
-jest.unstable_mockModule("../../src/repositories/licenseRepository.js", () => ({
+jest.unstable_mockModule('../../src/repositories/licenseRepository.js', () => ({
   default: { findActiveByCompanyId: jest.fn() },
 }));
 jest.unstable_mockModule(
-  "../../src/repositories/refreshTokenRepository.js",
+  '../../src/repositories/refreshTokenRepository.js',
   () => ({
     default: {
       create: jest.fn(),
@@ -28,12 +26,12 @@ jest.unstable_mockModule(
     },
   })
 );
-jest.unstable_mockModule("bcrypt", () => ({ default: { compare: jest.fn() } }));
-jest.unstable_mockModule("../../src/utils/jwtUtils.js", () => ({
-  generateAccessToken: jest.fn(() => "mock-access-token"),
-  generateRefreshToken: jest.fn(() => "mock-refresh-token"),
+jest.unstable_mockModule('bcrypt', () => ({ default: { compare: jest.fn() } }));
+jest.unstable_mockModule('../../src/utils/jwtUtils.js', () => ({
+  generateAccessToken: jest.fn(() => 'mock-access-token'),
+  generateRefreshToken: jest.fn(() => 'mock-refresh-token'),
 }));
-jest.unstable_mockModule("jsonwebtoken", () => ({
+jest.unstable_mockModule('jsonwebtoken', () => ({
   default: {
     decode: jest.fn(() => ({ exp: Date.now() / 1000 + 3600 })),
     verify: jest.fn(),
@@ -41,36 +39,39 @@ jest.unstable_mockModule("jsonwebtoken", () => ({
 }));
 
 const { default: userRepository } = await import(
-  "../../src/repositories/userRepository.js"
+  '../../src/repositories/userRepository.js'
 );
 const { default: licenseRepository } = await import(
-  "../../src/repositories/licenseRepository.js"
+  '../../src/repositories/licenseRepository.js'
 );
 const { default: refreshTokenRepository } = await import(
-  "../../src/repositories/refreshTokenRepository.js"
+  '../../src/repositories/refreshTokenRepository.js'
 );
-const { default: bcrypt } = await import("bcrypt");
+const { default: bcrypt } = await import('bcrypt');
 const { default: authService } = await import(
-  "../../src/services/authService.js"
+  '../../src/services/authService.js'
 );
 
-describe("AuthService", () => {
+describe('AuthService', () => {
   beforeEach(() => jest.clearAllMocks());
 
   /**
    * @describe Suite de tests pour la méthode `loginCompanyAdmin`.
    */
-  describe("loginCompanyAdmin", () => {
+  describe('loginCompanyAdmin', () => {
     /**
      * @it Doit retourner les jetons pour une connexion admin réussie.
      */
-    it("doit retourner les jetons pour une connexion admin réussie", async () => {
+    it('doit retourner les jetons pour une connexion admin réussie', async () => {
       // Arrange
       userRepository.findByEmail.mockResolvedValue(mockAdminUser);
       bcrypt.compare.mockResolvedValue(true);
 
       // Act
-      const result = await authService.loginCompanyAdmin("admin@test.com", "password");
+      const result = await authService.loginCompanyAdmin(
+        'admin@test.com',
+        'password'
+      );
 
       // Assert
       expect(result.user.userId).toBe(mockAdminUser.user_id);
@@ -86,21 +87,21 @@ describe("AuthService", () => {
 
       // Act & Assert
       await expect(
-        authService.loginCompanyAdmin("unknown@test.com", "pass")
+        authService.loginCompanyAdmin('unknown@test.com', 'pass')
       ).rejects.toThrow(UnauthorizedException);
     });
 
     /**
      * @it Doit lever une UnauthorizedException si le mot de passe est incorrect.
      */
-    it("doit lever une UnauthorizedException si le mot de passe est incorrect", async () => {
+    it('doit lever une UnauthorizedException si le mot de passe est incorrect', async () => {
       // Arrange
       userRepository.findByEmail.mockResolvedValue(mockAdminUser);
       bcrypt.compare.mockResolvedValue(false);
-      
+
       // Act & Assert
       await expect(
-        authService.loginCompanyAdmin("admin@test.com", "wrong-pass")
+        authService.loginCompanyAdmin('admin@test.com', 'wrong-pass')
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -108,18 +109,23 @@ describe("AuthService", () => {
   /**
    * @describe Suite de tests pour la méthode `loginTechnician`.
    */
-  describe("loginTechnician", () => {
+  describe('loginTechnician', () => {
     /**
      * @it Doit retourner les jetons pour une connexion technicien réussie avec une licence valide.
      */
-    it("doit retourner les jetons pour une connexion technicien réussie avec une licence active", async () => {
+    it('doit retourner les jetons pour une connexion technicien réussie avec une licence active', async () => {
       // Arrange
       userRepository.findByEmail.mockResolvedValue(mockTechnicianUser);
       bcrypt.compare.mockResolvedValue(true);
-      licenseRepository.findActiveByCompanyId.mockResolvedValue({ status: "active" });
+      licenseRepository.findActiveByCompanyId.mockResolvedValue({
+        status: 'active',
+      });
 
       // Act
-      const result = await authService.loginTechnician("tech@test.com", "password");
+      const result = await authService.loginTechnician(
+        'tech@test.com',
+        'password'
+      );
 
       // Assert
       expect(result.user.userId).toBe(mockTechnicianUser.user_id);
@@ -130,19 +136,19 @@ describe("AuthService", () => {
   /**
    * @describe Suite de tests pour la méthode `refreshTokens`.
    */
-  describe("refreshTokens", () => {
-    const oldRefreshToken = "old-refresh-token";
+  describe('refreshTokens', () => {
+    const oldRefreshToken = 'old-refresh-token';
     const storedToken = {
-      token_id: "rt-1",
-      user_id: "user-1",
-      family_id: "family-1",
+      token_id: 'rt-1',
+      user_id: 'user-1',
+      family_id: 'family-1',
       is_revoked: false,
     };
 
     /**
      * @it Doit retourner une nouvelle paire de jetons si le refreshToken est valide.
      */
-    it("doit retourner une nouvelle paire de jetons si le refreshToken est valide", async () => {
+    it('doit retourner une nouvelle paire de jetons si le refreshToken est valide', async () => {
       // Arrange
       refreshTokenRepository.findByToken.mockResolvedValue(storedToken);
       userRepository.findById.mockResolvedValue(mockAdminUser);
@@ -151,55 +157,61 @@ describe("AuthService", () => {
       const result = await authService.refreshTokens(oldRefreshToken);
 
       // Assert
-      expect(refreshTokenRepository.revokeTokenById).toHaveBeenCalledWith(storedToken.token_id);
+      expect(refreshTokenRepository.revokeTokenById).toHaveBeenCalledWith(
+        storedToken.token_id
+      );
       expect(refreshTokenRepository.create).toHaveBeenCalled();
-      expect(result).toHaveProperty("accessToken", "mock-access-token");
+      expect(result).toHaveProperty('accessToken', 'mock-access-token');
     });
 
     /**
      * @it Doit détecter la réutilisation si le token est trouvé mais déjà révoqué.
      */
-    it("doit détecter la réutilisation si le token est trouvé mais déjà révoqué", async () => {
+    it('doit détecter la réutilisation si le token est trouvé mais déjà révoqué', async () => {
       // Arrange
       const revokedToken = { ...storedToken, is_revoked: true };
       refreshTokenRepository.findByToken.mockResolvedValue(revokedToken);
 
       // Act & Assert
       await expect(authService.refreshTokens(oldRefreshToken)).rejects.toThrow(
-        "Tentative de réutilisation de jeton détectée. Session révoquée."
+        'Tentative de réutilisation de jeton détectée. Session révoquée.'
       );
-      expect(refreshTokenRepository.revokeFamily).toHaveBeenCalledWith(revokedToken.family_id);
+      expect(refreshTokenRepository.revokeFamily).toHaveBeenCalledWith(
+        revokedToken.family_id
+      );
     });
   });
 
   /**
    * @describe Suite de tests pour la méthode `logout`.
    */
-  describe("logout", () => {
+  describe('logout', () => {
     /**
      * @it Doit révoquer la famille de jetons si un token valide est fourni.
      */
-    it("doit révoquer la famille de jetons si un token valide est fourni", async () => {
+    it('doit révoquer la famille de jetons si un token valide est fourni', async () => {
       // Arrange
-      const storedToken = { family_id: "family-1" };
+      const storedToken = { family_id: 'family-1' };
       refreshTokenRepository.findByToken.mockResolvedValue(storedToken);
 
       // Act
-      await authService.logout("valid-refresh-token");
+      await authService.logout('valid-refresh-token');
 
       // Assert
-      expect(refreshTokenRepository.revokeFamily).toHaveBeenCalledWith("family-1");
+      expect(refreshTokenRepository.revokeFamily).toHaveBeenCalledWith(
+        'family-1'
+      );
     });
 
     /**
      * @it Ne doit rien faire si aucun token n'est fourni.
      */
     it("ne doit rien faire si aucun token n'est fourni", async () => {
-        // Act
-        await authService.logout(null);
-  
-        // Assert
-        expect(refreshTokenRepository.revokeFamily).not.toHaveBeenCalled();
-      });
+      // Act
+      await authService.logout(null);
+
+      // Assert
+      expect(refreshTokenRepository.revokeFamily).not.toHaveBeenCalled();
+    });
   });
 });

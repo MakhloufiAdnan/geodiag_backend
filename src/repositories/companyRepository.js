@@ -1,4 +1,4 @@
-import { db } from "../db/index.js";
+import { db } from '../db/index.js';
 
 /**
  * @file Gère l'accès et la manipulation des données pour l'entité Company.
@@ -13,7 +13,7 @@ class CompanyRepository {
    */
   async findById(id) {
     const { rows } = await db.query(
-      "SELECT * FROM companies WHERE company_id = $1",
+      'SELECT * FROM companies WHERE company_id = $1',
       [id]
     );
     return rows[0];
@@ -26,7 +26,7 @@ class CompanyRepository {
    */
   async findByEmail(email) {
     const { rows } = await db.query(
-      "SELECT * FROM companies WHERE email = $1",
+      'SELECT * FROM companies WHERE email = $1',
       [email]
     );
     return rows[0];
@@ -55,7 +55,7 @@ class CompanyRepository {
    */
   async findByIds(ids) {
     const { rows } = await db.query(
-      "SELECT * FROM companies WHERE company_id = ANY($1::uuid[])",
+      'SELECT * FROM companies WHERE company_id = ANY($1::uuid[])',
       [ids]
     );
     return rows;
@@ -69,7 +69,7 @@ class CompanyRepository {
    */
   async findAll(limit, offset) {
     const { rows } = await db.query(
-      "SELECT * FROM companies ORDER BY name LIMIT $1 OFFSET $2",
+      'SELECT * FROM companies ORDER BY name LIMIT $1 OFFSET $2',
       [limit, offset]
     );
     return rows;
@@ -80,7 +80,7 @@ class CompanyRepository {
    * @returns {Promise<number>} Le nombre total de compagnies.
    */
   async countAll() {
-    const { rows } = await db.query("SELECT COUNT(*) FROM companies");
+    const { rows } = await db.query('SELECT COUNT(*) FROM companies');
     return parseInt(rows[0].count, 10);
   }
 }

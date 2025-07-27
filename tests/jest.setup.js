@@ -1,8 +1,8 @@
-import "dotenv/config";
-import logger from "../src/config/logger.js";
-import { Client } from "pg";
-import { exec } from "child_process";
-import { promisify } from "util";
+import 'dotenv/config';
+import logger from '../src/config/logger.js';
+import { Client } from 'pg';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
@@ -16,15 +16,15 @@ export default async () => {
   // ========================================================================
   //  PRÉPARATION DE LA BASE DE DONNÉES
   // ========================================================================
-  logger.info("\nSetting up test database...");
+  logger.info('\nSetting up test database...');
 
-  const dbName = "geodiag_test_db";
+  const dbName = 'geodiag_test_db';
   const connectionConfig = {
-    host: "localhost",
+    host: 'localhost',
     port: process.env.DB_PORT || 5432,
     user: process.env.POSTGRES_USER,
     password: process.env.POSTGRES_PASSWORD,
-    database: "postgres",
+    database: 'postgres',
   };
 
   const client = new Client(connectionConfig);
@@ -44,32 +44,32 @@ export default async () => {
     // Se connecte à la BDD de test pour y activer l'extension
     const testDbClient = new Client({ ...connectionConfig, database: dbName });
     await testDbClient.connect();
-    logger.info("Enabling pgcrypto extension...");
-    await testDbClient.query("CREATE EXTENSION IF NOT EXISTS pgcrypto;");
+    logger.info('Enabling pgcrypto extension...');
+    await testDbClient.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
     await testDbClient.end();
 
-    logger.info("Test database created and configured successfully.");
+    logger.info('Test database created and configured successfully.');
   } catch (error) {
-    logger.error("Failed to set up test database:", error);
+    logger.error('Failed to set up test database:', error);
     if (client.connected) await client.end(); // S'assurer que le client est fermé en cas d'erreur
     process.exit(1);
   }
 
   try {
-    logger.info("Running migrations on test database...");
+    logger.info('Running migrations on test database...');
 
     const connectionString = `postgres://${connectionConfig.user}:${connectionConfig.password}@${connectionConfig.host}:${connectionConfig.port}/${dbName}`;
 
-    await execAsync("npm run migrate up", {
+    await execAsync('npm run migrate up', {
       env: {
         ...process.env,
         DATABASE_URL: connectionString,
       },
     });
 
-    logger.info("Migrations completed successfully.");
+    logger.info('Migrations completed successfully.');
   } catch (error) {
-    console.error("Failed to run migrations:", error);
+    console.error('Failed to run migrations:', error);
     process.exit(1);
   }
 };

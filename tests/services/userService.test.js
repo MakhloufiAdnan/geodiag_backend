@@ -1,9 +1,9 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import {
   NotFoundException,
   ConflictException,
-} from "../../src/exceptions/apiException.js";
-import { mockUser } from "../../mocks/mockData.js";
+} from '../../src/exceptions/apiException.js';
+import { mockUser } from '../../mocks/mockData.js';
 
 /**
  * @file Tests unitaires pour le UserService.
@@ -11,7 +11,7 @@ import { mockUser } from "../../mocks/mockData.js";
  * complètement ses dépendances. Chaque test suit le pattern Arrange-Act-Assert.
  */
 
-jest.unstable_mockModule("../../src/repositories/userRepository.js", () => ({
+jest.unstable_mockModule('../../src/repositories/userRepository.js', () => ({
   default: {
     findAll: jest.fn(),
     countAll: jest.fn(),
@@ -22,21 +22,21 @@ jest.unstable_mockModule("../../src/repositories/userRepository.js", () => ({
     delete: jest.fn(),
   },
 }));
-jest.unstable_mockModule("bcrypt", () => ({
+jest.unstable_mockModule('bcrypt', () => ({
   default: {
     hash: jest.fn(),
   },
 }));
 
 const { default: userRepository } = await import(
-  "../../src/repositories/userRepository.js"
+  '../../src/repositories/userRepository.js'
 );
-const { default: bcrypt } = await import("bcrypt");
+const { default: bcrypt } = await import('bcrypt');
 const { default: userService } = await import(
-  "../../src/services/userService.js"
+  '../../src/services/userService.js'
 );
 
-describe("UserService", () => {
+describe('UserService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -44,25 +44,25 @@ describe("UserService", () => {
   /**
    * @describe Suite de tests pour la méthode `createUser`.
    */
-  describe("createUser", () => {
-    const userData = { email: "test@test.com", password: "password123" };
+  describe('createUser', () => {
+    const userData = { email: 'test@test.com', password: 'password123' };
 
     /**
      * @it Doit créer un utilisateur avec succès en hachant le mot de passe.
      */
-    it("doit créer un utilisateur et hacher le mot de passe", async () => {
+    it('doit créer un utilisateur et hacher le mot de passe', async () => {
       // Arrange
       userRepository.findByEmail.mockResolvedValue(null);
-      bcrypt.hash.mockResolvedValue("hashed_password");
+      bcrypt.hash.mockResolvedValue('hashed_password');
       userRepository.create.mockResolvedValue({ id: 1, ...userData });
 
       // Act
       await userService.createUser(userData);
 
       // Assert
-      expect(bcrypt.hash).toHaveBeenCalledWith("password123", 10);
+      expect(bcrypt.hash).toHaveBeenCalledWith('password123', 10);
       expect(userRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ password_hash: "hashed_password" })
+        expect.objectContaining({ password_hash: 'hashed_password' })
       );
     });
 
@@ -71,7 +71,7 @@ describe("UserService", () => {
      */
     it("doit lever une ConflictException si l'email existe déjà", async () => {
       // Arrange
-      userRepository.findByEmail.mockResolvedValue({ email: "test@test.com" });
+      userRepository.findByEmail.mockResolvedValue({ email: 'test@test.com' });
       const action = () => userService.createUser(userData);
 
       // Act & Assert
@@ -82,7 +82,7 @@ describe("UserService", () => {
   /**
    * @describe Suite de tests pour la méthode `getUserById`.
    */
-  describe("getUserById", () => {
+  describe('getUserById', () => {
     /**
      * @it Doit retourner un utilisateur s'il est trouvé dans le repository.
      */
@@ -104,7 +104,7 @@ describe("UserService", () => {
     it("doit lever une NotFoundException si l'utilisateur n'existe pas", async () => {
       // Arrange
       userRepository.findById.mockResolvedValue(undefined);
-      const action = () => userService.getUserById("non-existent-id");
+      const action = () => userService.getUserById('non-existent-id');
 
       // Act & Assert
       await expect(action).rejects.toThrow(NotFoundException);
@@ -114,7 +114,7 @@ describe("UserService", () => {
   /**
    * @describe Suite de tests pour la méthode `getAllUsers`.
    */
-  describe("getAllUsers", () => {
+  describe('getAllUsers', () => {
     /**
      * @it Doit retourner une liste paginée d'utilisateurs.
      */
@@ -136,13 +136,13 @@ describe("UserService", () => {
   /**
    * @describe Suite de tests pour la méthode `updateUser`.
    */
-  describe("updateUser", () => {
-    const updateData = { first_name: "Updated Name" };
+  describe('updateUser', () => {
+    const updateData = { first_name: 'Updated Name' };
 
     /**
      * @it Doit appeler le repository pour mettre à jour un utilisateur.
      */
-    it("doit mettre à jour un utilisateur", async () => {
+    it('doit mettre à jour un utilisateur', async () => {
       // Arrange
       userRepository.update.mockResolvedValue({ ...mockUser, ...updateData });
 
@@ -162,7 +162,7 @@ describe("UserService", () => {
     it("doit lever une NotFoundException si l'utilisateur à mettre à jour n'existe pas", async () => {
       // Arrange
       userRepository.update.mockResolvedValue(null);
-      const action = () => userService.updateUser("non-existent-id", {});
+      const action = () => userService.updateUser('non-existent-id', {});
 
       // Act & Assert
       await expect(action).rejects.toThrow(NotFoundException);
@@ -172,11 +172,11 @@ describe("UserService", () => {
   /**
    * @describe Suite de tests pour la méthode `deleteUser`.
    */
-  describe("deleteUser", () => {
+  describe('deleteUser', () => {
     /**
      * @it Doit appeler le repository pour supprimer un utilisateur.
      */
-    it("doit supprimer un utilisateur", async () => {
+    it('doit supprimer un utilisateur', async () => {
       // Arrange
       userRepository.delete.mockResolvedValue(mockUser);
 
@@ -193,7 +193,7 @@ describe("UserService", () => {
     it("doit lever une NotFoundException si l'utilisateur à supprimer n'existe pas", async () => {
       // Arrange
       userRepository.delete.mockResolvedValue(null);
-      const action = () => userService.deleteUser("non-existent-id");
+      const action = () => userService.deleteUser('non-existent-id');
 
       // Act & Assert
       await expect(action).rejects.toThrow(NotFoundException);

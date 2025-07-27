@@ -1,5 +1,5 @@
-import userService from "../services/userService.js";
-import { UserDto } from "../dtos/userDto.js";
+import userService from '../services/userService.js';
+import { UserDto } from '../dtos/userDto.js';
 
 /**
  * @file Gère les requêtes HTTP pour l'entité "User".

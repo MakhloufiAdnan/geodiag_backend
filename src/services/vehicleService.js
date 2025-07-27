@@ -1,10 +1,10 @@
-import vehicleRepository from "../repositories/vehicleRepository.js";
-import { VehicleDto } from "../dtos/vehicleDto.js";
+import vehicleRepository from '../repositories/vehicleRepository.js';
+import { VehicleDto } from '../dtos/vehicleDto.js';
 import {
   NotFoundException,
   ConflictException,
-} from "../exceptions/apiException.js";
-import { createPaginatedResponse } from "../utils/paginationUtils.js";
+} from '../exceptions/apiException.js';
+import { createPaginatedResponse } from '../utils/paginationUtils.js';
 
 /**
  * @file Gère la logique métier pour les véhicules.
@@ -20,7 +20,7 @@ class VehicleService {
   async getVehicleByRegistration(registration) {
     const vehicle = await vehicleRepository.findByRegistration(registration);
     if (!vehicle) {
-      throw new NotFoundException("Véhicule non trouvé.");
+      throw new NotFoundException('Véhicule non trouvé.');
     }
     return new VehicleDto(vehicle);
   }
@@ -49,7 +49,7 @@ class VehicleService {
       totalItems,
       page,
       limit,
-      baseUrl: "/api/vehicles",
+      baseUrl: '/api/vehicles',
     });
   }
 
@@ -70,7 +70,7 @@ class VehicleService {
     }
     const existingByVin = await vehicleRepository.findByVin(vehicleData.vin);
     if (existingByVin) {
-      throw new ConflictException("Un véhicule avec ce VIN existe déjà.");
+      throw new ConflictException('Un véhicule avec ce VIN existe déjà.');
     }
 
     const newVehicle = await vehicleRepository.create(vehicleData);

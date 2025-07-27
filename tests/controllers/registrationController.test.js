@@ -4,24 +4,24 @@
  * et l'échec (propagation d'erreur) du service d'inscription.
  */
 
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import { ConflictException } from "../../src/exceptions/apiException.js";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { ConflictException } from '../../src/exceptions/apiException.js';
 
 // Mock du service d'inscription pour isoler le contrôleur.
-jest.unstable_mockModule("../../src/services/registrationService.js", () => ({
+jest.unstable_mockModule('../../src/services/registrationService.js', () => ({
   default: {
     registerCompany: jest.fn(),
   },
 }));
 
 const { default: registrationService } = await import(
-  "../../src/services/registrationService.js"
+  '../../src/services/registrationService.js'
 );
 const { default: registrationController } = await import(
-  "../../src/controllers/registrationController.js"
+  '../../src/controllers/registrationController.js'
 );
 
-describe("RegistrationController", () => {
+describe('RegistrationController', () => {
   let mockReq, mockRes, mockNext;
 
   /**
@@ -38,23 +38,23 @@ describe("RegistrationController", () => {
     jest.clearAllMocks();
   });
 
-  describe("registerCompany", () => {
+  describe('registerCompany', () => {
     /**
      * @description Teste le cas nominal où l'inscription réussit.
      * Il vérifie que le contrôleur appelle le service, crée un cookie sécurisé
      * avec le refreshToken, et renvoie l'accessToken dans la réponse JSON.
      */
-    it("doit créer un cookie et retourner les données avec un statut 201 en cas de succès", async () => {
+    it('doit créer un cookie et retourner les données avec un statut 201 en cas de succès', async () => {
       // Arrange : Préparer les données et le mock du service.
       const registrationData = {
-        companyData: { name: "Test Co" },
-        adminData: { email: "admin@test.com" },
+        companyData: { name: 'Test Co' },
+        adminData: { email: 'admin@test.com' },
       };
       const serviceResult = {
-        accessToken: "mock-access-token",
-        refreshToken: "mock-refresh-token",
-        user: { id: "user-1" },
-        company: { id: "co-1" },
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+        user: { id: 'user-1' },
+        company: { id: 'co-1' },
       };
       mockReq.body = registrationData;
       registrationService.registerCompany.mockResolvedValue(serviceResult);
@@ -68,7 +68,7 @@ describe("RegistrationController", () => {
       );
       expect(mockRes.status).toHaveBeenCalledWith(201);
       expect(mockRes.cookie).toHaveBeenCalledWith(
-        "refreshToken",
+        'refreshToken',
         serviceResult.refreshToken,
         expect.any(Object)
       );
@@ -86,7 +86,7 @@ describe("RegistrationController", () => {
      */
     it("doit appeler le middleware next avec l'erreur si le service échoue", async () => {
       // Arrange
-      const error = new ConflictException("Cet e-mail est déjà utilisé.");
+      const error = new ConflictException('Cet e-mail est déjà utilisé.');
       mockReq.body = {};
       registrationService.registerCompany.mockRejectedValue(error);
 

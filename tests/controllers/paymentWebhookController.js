@@ -1,5 +1,5 @@
-import paymentService from "../services/paymentService.js";
-import logger from "../config/logger.js";
+import paymentService from '../services/paymentService.js';
+import logger from '../config/logger.js';
 
 /**
  * @description Contrôleur pour la gestion des webhooks de paiement.
@@ -25,7 +25,7 @@ class PaymentWebhookController {
       // car l'événement a déjà été traité ou est en cours de traitement.
       if (error.statusCode === 409) {
         logger.warn(`Événement en double ignoré : ${req.webhookEvent.id}`);
-        res.status(200).send({ message: "Événement en double ignoré." });
+        res.status(200).send({ message: 'Événement en double ignoré.' });
       } else {
         next(error); // Passe les autres erreurs au middleware de gestion des erreurs
       }

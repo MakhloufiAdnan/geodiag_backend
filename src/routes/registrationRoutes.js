@@ -1,7 +1,7 @@
-import { Router } from "express";
-import rateLimit from "express-rate-limit";
-import registrationController from "../controllers/registrationController.js";
-import { validateRegister } from "../validators/registrationValidator.js";
+import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import registrationController from '../controllers/registrationController.js';
+import { validateRegister } from '../validators/registrationValidator.js';
 
 /**
  * @file Définit la route pour l'inscription d'une nouvelle compagnie.
@@ -20,7 +20,7 @@ const registrationLimiter = rateLimit({
 
 // Route publique, mais avec une validation stricte des données d'entrée.
 router.post(
-  "/register/company",
+  '/register/company',
   registrationLimiter,
   validateRegister,
   registrationController.registerCompany

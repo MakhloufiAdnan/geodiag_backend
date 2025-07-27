@@ -1,5 +1,5 @@
-import paymentService from "../services/paymentService.js";
-import logger from "../config/logger.js";
+import paymentService from '../services/paymentService.js';
+import logger from '../config/logger.js';
 
 /**
  * @file Gère les requêtes HTTP relatives aux webhooks de paiement.
@@ -37,9 +37,9 @@ class PaymentWebhookController {
       if (error.statusCode === 409) {
         logger.warn(
           { eventId: req.webhookEvent.id },
-          "Événement webhook en double ignoré."
+          'Événement webhook en double ignoré.'
         );
-        res.status(200).send({ message: "Événement en double ignoré." });
+        res.status(200).send({ message: 'Événement en double ignoré.' });
       } else {
         next(error);
       }

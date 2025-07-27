@@ -1,5 +1,5 @@
-import stripe from "stripe";
-import logger from "../config/logger.js";
+import stripe from 'stripe';
+import logger from '../config/logger.js';
 
 /**
  * Middleware pour sécuriser les webhooks de paiement.
@@ -11,11 +11,11 @@ export async function validateWebhook(req, res, next) {
     logger.error(
       "❌ La clé secrète du webhook Stripe (STRIPE_WEBHOOK_SECRET) n'est pas définie."
     );
-    return res.status(500).send("Erreur de configuration du serveur.");
+    return res.status(500).send('Erreur de configuration du serveur.');
   }
 
   // 2. Récupérer la signature depuis les en-têtes
-  const signature = req.headers["stripe-signature"];
+  const signature = req.headers['stripe-signature'];
 
   try {
     // 3. Utiliser la librairie Stripe pour construire et valider l'événement.
@@ -32,11 +32,11 @@ export async function validateWebhook(req, res, next) {
 
     logger.info(
       { eventId: event.id, eventType: event.type },
-      "✅ Webhook Stripe validé avec succès."
+      '✅ Webhook Stripe validé avec succès.'
     );
     next();
   } catch (err) {
-    logger.error({ err, signature }, "❌ Échec de la validation du webhook");
+    logger.error({ err, signature }, '❌ Échec de la validation du webhook');
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 }

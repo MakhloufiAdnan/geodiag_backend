@@ -1,16 +1,16 @@
-import userService from "../services/userService.js";
-import authService from "../services/authService.js";
-import offerService from "../services/offerService.js";
-import orderService from "../services/orderService.js";
-import paymentService from "../services/paymentService.js";
-import licenseRepository from "../repositories/licenseRepository.js";
-import { GraphQLError } from "graphql";
+import userService from '../services/userService.js';
+import authService from '../services/authService.js';
+import offerService from '../services/offerService.js';
+import orderService from '../services/orderService.js';
+import paymentService from '../services/paymentService.js';
+import licenseRepository from '../repositories/licenseRepository.js';
+import { GraphQLError } from 'graphql';
 
 // Helper pour vérifier si l'utilisateur est un admin authentifié
 const ensureAdmin = (user) => {
-  if (!user || user.role !== "admin") {
-    throw new GraphQLError("Accès refusé. Vous devez être un administrateur.", {
-      extensions: { code: "FORBIDDEN" },
+  if (!user || user.role !== 'admin') {
+    throw new GraphQLError('Accès refusé. Vous devez être un administrateur.', {
+      extensions: { code: 'FORBIDDEN' },
     });
   }
 };
@@ -26,8 +26,8 @@ export const resolvers = {
       ensureAdmin(context.user);
       const order = await context.dataloaders.orderLoader.load(id);
       if (!order || order.company_id !== context.user.companyId) {
-        throw new GraphQLError("Commande non trouvée ou accès non autorisé.", {
-          extensions: { code: "NOT_FOUND" },
+        throw new GraphQLError('Commande non trouvée ou accès non autorisé.', {
+          extensions: { code: 'NOT_FOUND' },
         });
       }
       return order;
@@ -38,8 +38,8 @@ export const resolvers = {
     },
     me: async (_, __, context) => {
       if (!context.user) {
-        throw new GraphQLError("Non authentifié.", {
-          extensions: { code: "UNAUTHENTICATED" },
+        throw new GraphQLError('Non authentifié.', {
+          extensions: { code: 'UNAUTHENTICATED' },
         });
       }
       return userService.getUserById(context.user.userId, context.user);

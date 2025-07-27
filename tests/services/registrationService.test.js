@@ -1,6 +1,6 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import { ConflictException } from "../../src/exceptions/apiException.js";
-import { mockRegistrationData } from "../../mocks/mockData.js"; // Importation des données centralisées
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { ConflictException } from '../../src/exceptions/apiException.js';
+import { mockRegistrationData } from '../../mocks/mockData.js'; // Importation des données centralisées
 
 /**
  * @file Tests unitaires pour RegistrationService.
@@ -9,39 +9,39 @@ import { mockRegistrationData } from "../../mocks/mockData.js"; // Importation d
  */
 
 // 1. Mocker les dépendances pour isoler le service
-process.env.JWT_SECRET = "test-secret";
+process.env.JWT_SECRET = 'test-secret';
 
-jest.unstable_mockModule("../../src/repositories/companyRepository.js", () => ({
+jest.unstable_mockModule('../../src/repositories/companyRepository.js', () => ({
   default: { findByEmail: jest.fn(), create: jest.fn() },
 }));
-jest.unstable_mockModule("../../src/repositories/userRepository.js", () => ({
+jest.unstable_mockModule('../../src/repositories/userRepository.js', () => ({
   default: { findByEmail: jest.fn(), create: jest.fn() },
 }));
-jest.unstable_mockModule("bcrypt", () => ({ default: { hash: jest.fn() } }));
-jest.unstable_mockModule("../../src/db/index.js", () => ({
+jest.unstable_mockModule('bcrypt', () => ({ default: { hash: jest.fn() } }));
+jest.unstable_mockModule('../../src/db/index.js', () => ({
   pool: {
     connect: jest.fn(),
   },
 }));
-jest.unstable_mockModule("../../src/utils/jwtUtils.js", () => ({
-  generateAccessToken: jest.fn(() => "mock-access-token"),
-  generateRefreshToken: jest.fn(() => "mock-refresh-token"),
+jest.unstable_mockModule('../../src/utils/jwtUtils.js', () => ({
+  generateAccessToken: jest.fn(() => 'mock-access-token'),
+  generateRefreshToken: jest.fn(() => 'mock-refresh-token'),
 }));
 
 // 2. Imports après les mocks
 const { default: companyRepository } = await import(
-  "../../src/repositories/companyRepository.js"
+  '../../src/repositories/companyRepository.js'
 );
 const { default: userRepository } = await import(
-  "../../src/repositories/userRepository.js"
+  '../../src/repositories/userRepository.js'
 );
-const { default: bcrypt } = await import("bcrypt");
-const { pool } = await import("../../src/db/index.js");
+const { default: bcrypt } = await import('bcrypt');
+const { pool } = await import('../../src/db/index.js');
 const { default: registrationService } = await import(
-  "../../src/services/registrationService.js"
+  '../../src/services/registrationService.js'
 );
 
-describe("RegistrationService", () => {
+describe('RegistrationService', () => {
   // Simuler un client de base de données pour les transactions
   const mockDbClient = {
     query: jest.fn(),
@@ -54,29 +54,28 @@ describe("RegistrationService", () => {
     pool.connect.mockResolvedValue(mockDbClient);
   });
 
-  describe("registerCompany", () => {
-    it("doit créer une compagnie et un admin, hacher le mot de passe, et renvoyer les tokens", async () => {
+  describe('registerCompany', () => {
+    it('doit créer une compagnie et un admin, hacher le mot de passe, et renvoyer les tokens', async () => {
       // Arrange
       companyRepository.findByEmail.mockResolvedValue(null);
       userRepository.findByEmail.mockResolvedValue(null);
-      bcrypt.hash.mockResolvedValue("hashed_password");
+      bcrypt.hash.mockResolvedValue('hashed_password');
       companyRepository.create.mockResolvedValue({
-        company_id: "co-uuid",
+        company_id: 'co-uuid',
         ...mockRegistrationData.companyData,
       });
       userRepository.create.mockResolvedValue({
-        user_id: "user-uuid",
-        role: "admin",
+        user_id: 'user-uuid',
+        role: 'admin',
         ...mockRegistrationData.adminData,
       });
 
       // Act
-      const result = await registrationService.registerCompany(
-        mockRegistrationData
-      );
+      const result =
+        await registrationService.registerCompany(mockRegistrationData);
 
       // Assert
-      expect(mockDbClient.query).toHaveBeenCalledWith("BEGIN");
+      expect(mockDbClient.query).toHaveBeenCalledWith('BEGIN');
       expect(bcrypt.hash).toHaveBeenCalledWith(
         mockRegistrationData.adminData.password,
         10
@@ -86,11 +85,11 @@ describe("RegistrationService", () => {
         mockDbClient
       );
       expect(userRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ password_hash: "hashed_password" }),
+        expect.objectContaining({ password_hash: 'hashed_password' }),
         mockDbClient
       );
-      expect(mockDbClient.query).toHaveBeenCalledWith("COMMIT");
-      expect(result).toHaveProperty("accessToken", "mock-access-token");
+      expect(mockDbClient.query).toHaveBeenCalledWith('COMMIT');
+      expect(result).toHaveProperty('accessToken', 'mock-access-token');
       expect(result.user.email).toBe(mockRegistrationData.adminData.email);
       expect(mockDbClient.release).toHaveBeenCalled();
     });
@@ -106,7 +105,7 @@ describe("RegistrationService", () => {
       await expect(
         registrationService.registerCompany(mockRegistrationData)
       ).rejects.toThrow(
-        new ConflictException("Une entreprise avec cet email existe déjà.")
+        new ConflictException('Une entreprise avec cet email existe déjà.')
       );
 
       // La transaction ne doit même pas commencer
@@ -124,7 +123,7 @@ describe("RegistrationService", () => {
       await expect(
         registrationService.registerCompany(mockRegistrationData)
       ).rejects.toThrow(
-        new ConflictException("Un utilisateur avec cet email existe déjà.")
+        new ConflictException('Un utilisateur avec cet email existe déjà.')
       );
 
       // La transaction ne doit même pas commencer
@@ -135,20 +134,20 @@ describe("RegistrationService", () => {
       // Arrange
       companyRepository.findByEmail.mockResolvedValue(null);
       userRepository.findByEmail.mockResolvedValue(null);
-      bcrypt.hash.mockResolvedValue("hashed_password");
-      companyRepository.create.mockResolvedValue({ company_id: "co-uuid" });
+      bcrypt.hash.mockResolvedValue('hashed_password');
+      companyRepository.create.mockResolvedValue({ company_id: 'co-uuid' });
       userRepository.create.mockRejectedValue(
-        new Error("DB error on user creation")
+        new Error('DB error on user creation')
       );
 
       // Act & Assert
       await expect(
         registrationService.registerCompany(mockRegistrationData)
-      ).rejects.toThrow("DB error on user creation");
+      ).rejects.toThrow('DB error on user creation');
 
-      expect(mockDbClient.query).toHaveBeenCalledWith("BEGIN");
-      expect(mockDbClient.query).toHaveBeenCalledWith("ROLLBACK");
-      expect(mockDbClient.query).not.toHaveBeenCalledWith("COMMIT");
+      expect(mockDbClient.query).toHaveBeenCalledWith('BEGIN');
+      expect(mockDbClient.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(mockDbClient.query).not.toHaveBeenCalledWith('COMMIT');
       expect(mockDbClient.release).toHaveBeenCalled();
     });
   });

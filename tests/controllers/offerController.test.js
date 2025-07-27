@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 /**
  * @file Tests unitaires pour OfferController.
@@ -6,7 +6,7 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
  */
 
 // 1. Mocker le service pour isoler le contrôleur
-jest.unstable_mockModule("../../src/services/offerService.js", () => ({
+jest.unstable_mockModule('../../src/services/offerService.js', () => ({
   default: {
     getAllOffers: jest.fn(),
   },
@@ -14,17 +14,17 @@ jest.unstable_mockModule("../../src/services/offerService.js", () => ({
 
 // 2. Importer les modules après le mock
 const { default: offerService } = await import(
-  "../../src/services/offerService.js"
+  '../../src/services/offerService.js'
 );
 const { default: offerController } = await import(
-  "../../src/controllers/offerController.js"
+  '../../src/controllers/offerController.js'
 );
 
-describe("OfferController", () => {
+describe('OfferController', () => {
   let mockReq, mockRes, mockNext;
 
   beforeEach(() => {
-    mockReq = { user: { role: "admin" } };
+    mockReq = { user: { role: 'admin' } };
     mockRes = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
@@ -33,10 +33,10 @@ describe("OfferController", () => {
     jest.clearAllMocks();
   });
 
-  describe("getAllOffers", () => {
-    it("doit retourner 200 et la liste des offres en cas de succès", async () => {
+  describe('getAllOffers', () => {
+    it('doit retourner 200 et la liste des offres en cas de succès', async () => {
       // Arrange
-      const fakeOffers = [{ id: "offer-1", name: "Basic Plan" }];
+      const fakeOffers = [{ id: 'offer-1', name: 'Basic Plan' }];
       offerService.getAllOffers.mockResolvedValue(fakeOffers);
 
       // Act
@@ -49,9 +49,9 @@ describe("OfferController", () => {
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it("doit appeler next(error) si le service lève une erreur", async () => {
+    it('doit appeler next(error) si le service lève une erreur', async () => {
       // Arrange
-      const fakeError = new Error("Erreur de service");
+      const fakeError = new Error('Erreur de service');
       offerService.getAllOffers.mockRejectedValue(fakeError);
 
       // Act

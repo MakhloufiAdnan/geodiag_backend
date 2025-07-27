@@ -1,11 +1,11 @@
-import orderRepository from "../repositories/orderRepository.js";
-import offerService from "./offerService.js";
-import { v4 as uuidv4 } from "uuid";
-import { OrderDto } from "../dtos/orderDto.js";
+import orderRepository from '../repositories/orderRepository.js';
+import offerService from './offerService.js';
+import { v4 as uuidv4 } from 'uuid';
+import { OrderDto } from '../dtos/orderDto.js';
 import {
   ForbiddenException,
   NotFoundException,
-} from "../exceptions/apiException.js";
+} from '../exceptions/apiException.js';
 
 /**
  * @class OrderService
@@ -27,9 +27,9 @@ class OrderService {
    */
   async createOrder(offerId, authenticatedUser) {
     // 1. Vérifier les permissions de l'utilisateur
-    if (!authenticatedUser || authenticatedUser.role !== "admin") {
+    if (!authenticatedUser || authenticatedUser.role !== 'admin') {
       throw new ForbiddenException(
-        "Seul un administrateur de compagnie peut passer une commande."
+        'Seul un administrateur de compagnie peut passer une commande.'
       );
     }
 

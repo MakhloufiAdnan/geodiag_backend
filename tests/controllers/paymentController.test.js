@@ -1,5 +1,5 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import { ForbiddenException } from "../../src/exceptions/apiException.js";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { ForbiddenException } from '../../src/exceptions/apiException.js';
 
 /**
  * @file Tests unitaires pour PaymentController.
@@ -8,20 +8,20 @@ import { ForbiddenException } from "../../src/exceptions/apiException.js";
  */
 
 // Mock instable pour les modules ES, s'assurant que l'import dynamique récupère la version mockée.
-jest.unstable_mockModule("../../src/services/paymentService.js", () => ({
+jest.unstable_mockModule('../../src/services/paymentService.js', () => ({
   default: {
     createCheckoutSession: jest.fn(),
   },
 }));
 
 const { default: paymentService } = await import(
-  "../../src/services/paymentService.js"
+  '../../src/services/paymentService.js'
 );
 const { default: paymentController } = await import(
-  "../../src/controllers/paymentController.js"
+  '../../src/controllers/paymentController.js'
 );
 
-describe("PaymentController", () => {
+describe('PaymentController', () => {
   let mockReq, mockRes, mockNext;
 
   /**
@@ -33,7 +33,7 @@ describe("PaymentController", () => {
 
     mockReq = {
       body: {},
-      user: { id: "user-uuid-456", role: "admin" },
+      user: { id: 'user-uuid-456', role: 'admin' },
     };
     mockRes = {
       status: jest.fn().mockReturnThis(),
@@ -42,16 +42,16 @@ describe("PaymentController", () => {
     mockNext = jest.fn();
   });
 
-  describe("createCheckoutSession", () => {
+  describe('createCheckoutSession', () => {
     /**
      * @description Teste le cas nominal où la création de la session réussit.
      */
-    it("doit retourner 200 et la session de paiement en cas de succès", async () => {
+    it('doit retourner 200 et la session de paiement en cas de succès', async () => {
       // Arrange : Préparer les données et configurer le service pour qu'il réussisse.
-      const orderId = "order-uuid-123";
+      const orderId = 'order-uuid-123';
       const session = {
-        sessionId: "cs_test_123",
-        url: "https://checkout.stripe.com/...",
+        sessionId: 'cs_test_123',
+        url: 'https://checkout.stripe.com/...',
       };
       mockReq.body.orderId = orderId;
       paymentService.createCheckoutSession.mockResolvedValue(session);
@@ -74,8 +74,8 @@ describe("PaymentController", () => {
      */
     it("doit appeler le middleware next avec l'erreur si le service échoue", async () => {
       // Arrange : Préparer les données et configurer le service pour qu'il échoue.
-      const orderId = "order-uuid-123";
-      const error = new ForbiddenException("Accès refusé à cette ressource.");
+      const orderId = 'order-uuid-123';
+      const error = new ForbiddenException('Accès refusé à cette ressource.');
       mockReq.body.orderId = orderId;
       paymentService.createCheckoutSession.mockRejectedValue(error);
 

@@ -1,6 +1,6 @@
-import { beforeAll, afterAll } from "@jest/globals";
-import { createTestApp } from "./app.js";
-import supertest from "supertest";
+import { beforeAll, afterAll } from '@jest/globals';
+import { createTestApp } from './app.js';
+import supertest from 'supertest';
 
 /**
  * @file Met en place un environnement de test standard pour les tests d'intégration.

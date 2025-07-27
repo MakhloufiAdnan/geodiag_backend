@@ -1,11 +1,11 @@
-import userRepository from "../repositories/userRepository.js";
-import bcrypt from "bcrypt";
-import { UserDto } from "../dtos/userDto.js";
-import { createPaginatedResponse } from "../utils/paginationUtils.js";
+import userRepository from '../repositories/userRepository.js';
+import bcrypt from 'bcrypt';
+import { UserDto } from '../dtos/userDto.js';
+import { createPaginatedResponse } from '../utils/paginationUtils.js';
 import {
   NotFoundException,
   ConflictException,
-} from "../exceptions/apiException.js";
+} from '../exceptions/apiException.js';
 
 /**
  * @file Gère la logique métier pour les utilisateurs (CRUD).
@@ -36,7 +36,7 @@ class UserService {
       totalItems,
       page,
       limit,
-      baseUrl: "/api/users",
+      baseUrl: '/api/users',
     });
   }
 
@@ -49,7 +49,7 @@ class UserService {
   async getUserById(id) {
     const user = await userRepository.findById(id);
     if (!user) {
-      throw new NotFoundException("Utilisateur non trouvé.");
+      throw new NotFoundException('Utilisateur non trouvé.');
     }
     return user;
   }
@@ -63,7 +63,7 @@ class UserService {
   async createUser(userData) {
     const existingUser = await userRepository.findByEmail(userData.email);
     if (existingUser) {
-      throw new ConflictException("Un utilisateur avec cet email existe déjà.");
+      throw new ConflictException('Un utilisateur avec cet email existe déjà.');
     }
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(userData.password, saltRounds);
@@ -85,14 +85,14 @@ class UserService {
       const existingUser = await userRepository.findByEmail(userData.email);
       if (existingUser && existingUser.user_id !== id) {
         throw new ConflictException(
-          "Cet email est déjà utilisé par un autre compte."
+          'Cet email est déjà utilisé par un autre compte.'
         );
       }
     }
     const updatedUser = await userRepository.update(id, userData);
     if (!updatedUser) {
       throw new NotFoundException(
-        "Utilisateur non trouvé pour la mise à jour."
+        'Utilisateur non trouvé pour la mise à jour.'
       );
     }
     return updatedUser;
@@ -108,7 +108,7 @@ class UserService {
     const deletedUser = await userRepository.delete(id);
     if (!deletedUser) {
       throw new NotFoundException(
-        "Utilisateur non trouvé pour la suppression."
+        'Utilisateur non trouvé pour la suppression.'
       );
     }
     return deletedUser;

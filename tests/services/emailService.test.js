@@ -1,12 +1,12 @@
-import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import { mockCompany, mockLicense } from "../../mocks/mockData.js";
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { mockCompany, mockLicense } from '../../mocks/mockData.js';
 
 /**
  * @file Tests unitaires pour EmailService.
  */
 
 const mockSendMail = jest.fn();
-jest.unstable_mockModule("nodemailer", () => ({
+jest.unstable_mockModule('nodemailer', () => ({
   default: {
     createTransport: () => ({
       sendMail: mockSendMail,
@@ -15,18 +15,18 @@ jest.unstable_mockModule("nodemailer", () => ({
 }));
 
 const { default: emailService } = await import(
-  "../../src/services/emailService.js"
+  '../../src/services/emailService.js'
 );
 
-describe("EmailService", () => {
+describe('EmailService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("sendLicenseAndInvoice", () => {
-    const invoicePdfBuffer = Buffer.from("fake-pdf-content");
+  describe('sendLicenseAndInvoice', () => {
+    const invoicePdfBuffer = Buffer.from('fake-pdf-content');
 
-    it("doit appeler sendMail avec les bons arguments en cas de succès", async () => {
+    it('doit appeler sendMail avec les bons arguments en cas de succès', async () => {
       // Arrange
       mockSendMail.mockResolvedValue(true);
 

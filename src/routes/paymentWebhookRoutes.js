@@ -1,7 +1,7 @@
-import { Router } from "express";
-import express from "express";
-import paymentWebhookController from "../controllers/paymentWebhookController.js";
-import { validateWebhook } from "../middleware/webhookAuthMiddleware.js";
+import { Router } from 'express';
+import express from 'express';
+import paymentWebhookController from '../controllers/paymentWebhookController.js';
+import { validateWebhook } from '../middleware/webhookAuthMiddleware.js';
 
 /**
  * @file Définit la route pour recevoir les webhooks de paiement.
@@ -14,8 +14,8 @@ const router = Router();
 // 2. validateWebhook : Vérifie la signature du webhook.
 // 3. paymentWebhookController.handleWebhook : Traite l'événement.
 router.post(
-  "/webhooks/payment",
-  express.raw({ type: "application/json" }),
+  '/webhooks/payment',
+  express.raw({ type: 'application/json' }),
   validateWebhook,
   paymentWebhookController.handleWebhook
 );

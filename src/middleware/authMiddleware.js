@@ -1,5 +1,5 @@
-import jwt from "jsonwebtoken";
-import { pool } from "../db/index.js";
+import jwt from 'jsonwebtoken';
+import { pool } from '../db/index.js';
 
 /**
  * Middleware pour protéger les routes.
@@ -9,14 +9,14 @@ import { pool } from "../db/index.js";
  */
 export async function protect(req, res, next) {
   const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ")
+  const token = authHeader?.startsWith('Bearer ')
     ? authHeader.substring(7)
     : null;
 
   if (!token) {
     return res
       .status(401)
-      .json({ message: "Accès non autorisé, token manquant." });
+      .json({ message: 'Accès non autorisé, token manquant.' });
   }
 
   try {
@@ -25,18 +25,16 @@ export async function protect(req, res, next) {
 
     // Étape 2: Vérification de "fraîcheur" en base de données
     const { rows } = await pool.query(
-      "SELECT user_id, company_id, email, role, is_active FROM users WHERE user_id = $1",
+      'SELECT user_id, company_id, email, role, is_active FROM users WHERE user_id = $1',
       [decoded.userId]
     );
     const currentUser = rows[0];
 
     // Vérifier si l'utilisateur existe toujours et est actif
     if (!currentUser?.is_active) {
-      return res
-        .status(401)
-        .json({
-          message: "Accès non autorisé, l'utilisateur n'est plus actif.",
-        });
+      return res.status(401).json({
+        message: "Accès non autorisé, l'utilisateur n'est plus actif.",
+      });
     }
 
     // Vérifier si le token correspond à l'utilisateur
@@ -51,8 +49,8 @@ export async function protect(req, res, next) {
   } catch (error) {
     // Utiliser le logger contextuel pour une meilleure traçabilité
     const log = req.log || console;
-    log.error({ err: error }, "Erreur de vérification JWT");
+    log.error({ err: error }, 'Erreur de vérification JWT');
 
-    res.status(401).json({ message: "Token non valide ou expiré." });
+    res.status(401).json({ message: 'Token non valide ou expiré.' });
   }
 }

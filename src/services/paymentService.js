@@ -1,25 +1,23 @@
-import stripe from "stripe";
-import paymentRepository from "../repositories/paymentRepository.js";
-import orderRepository from "../repositories/orderRepository.js";
-import companyRepository from "../repositories/companyRepository.js";
-import offerRepository from "../repositories/offerRepository.js";
-import processedWebhookRepository from "../repositories/processedWebhookRepository.js";
-import jobRepository from "../repositories/jobRepository.js";
-import licenseService from "./licenseService.js";
-import emailService from "./emailService.js";
-import { LicenseDto } from "../dtos/licenseDto.js";
-import { generateInvoicePdf } from "../utils/pdfGenerator.js";
+import stripe from 'stripe';
+import paymentRepository from '../repositories/paymentRepository.js';
+import orderRepository from '../repositories/orderRepository.js';
+import companyRepository from '../repositories/companyRepository.js';
+import offerRepository from '../repositories/offerRepository.js';
+import processedWebhookRepository from '../repositories/processedWebhookRepository.js';
+import jobRepository from '../repositories/jobRepository.js';
+import licenseService from './licenseService.js';
+import emailService from './emailService.js';
+import { LicenseDto } from '../dtos/licenseDto.js';
+import { generateInvoicePdf } from '../utils/pdfGenerator.js';
 import {
   ForbiddenException,
   NotFoundException,
   ApiException,
   ConflictException,
-} from "../exceptions/apiException.js";
+} from '../exceptions/apiException.js';
 
-
-
-import logger from "../config/logger.js";
-import { withTransaction } from "../utils/dbTransaction.js";
+import logger from '../config/logger.js';
+import { withTransaction } from '../utils/dbTransaction.js';
 
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -42,39 +40,39 @@ class PaymentService {
    * @throws {NotFoundException} Si la commande ou l'offre associée n'est pas trouvée.
    */
   async createCheckoutSession(orderId, authenticatedUser) {
-    if (!authenticatedUser || authenticatedUser.role !== "admin") {
+    if (!authenticatedUser || authenticatedUser.role !== 'admin') {
       throw new ForbiddenException(
-        "Seul un administrateur peut initier un paiement."
+        'Seul un administrateur peut initier un paiement.'
       );
     }
 
     const order = await orderRepository.findById(orderId);
     if (!order) {
-      throw new NotFoundException("Commande non trouvée.");
+      throw new NotFoundException('Commande non trouvée.');
     }
 
     if (order.company_id !== authenticatedUser.companyId) {
-      throw new ForbiddenException("Accès non autorisé à cette commande.");
+      throw new ForbiddenException('Accès non autorisé à cette commande.');
     }
 
     const offer = await offerRepository.findById(order.offer_id);
     if (!offer) {
-      throw new NotFoundException("Offre associée à la commande non trouvée.");
+      throw new NotFoundException('Offre associée à la commande non trouvée.');
     }
 
     const session = await stripeClient.checkout.sessions.create({
-      payment_method_types: ["card"],
+      payment_method_types: ['card'],
       line_items: [
         {
           price_data: {
-            currency: "eur",
+            currency: 'eur',
             product_data: { name: `Licence Geodiag - ${offer.name}` },
             unit_amount: Math.round(offer.price * 100),
           },
           quantity: 1,
         },
       ],
-      mode: "payment",
+      mode: 'payment',
       metadata: {
         orderId: order.order_id,
         companyId: order.company_id,
@@ -97,11 +95,11 @@ class PaymentService {
    */
   async queuePaymentWebhook(event) {
     // En environnement de test, permet de contourner la file d'attente pour un résultat immédiat.
-    if (process.env.NODE_ENV === "test") {
+    if (process.env.NODE_ENV === 'test') {
       logger.info(
-        "Environnement de test détecté. Traitement synchrone du webhook."
+        'Environnement de test détecté. Traitement synchrone du webhook.'
       );
-      if (event.type === "checkout.session.completed") {
+      if (event.type === 'checkout.session.completed') {
         await this.processSuccessfulPayment(event.data.object);
       }
       return;
@@ -113,17 +111,17 @@ class PaymentService {
         // Tente d'insérer l'ID de l'événement. Échoue si déjà présent.
         await processedWebhookRepository.create(event.id, client);
       } catch (err) {
-        if (err.code === "23505") {
+        if (err.code === '23505') {
           // Violation de contrainte unique
-          throw new ConflictException("Événement déjà traité.");
+          throw new ConflictException('Événement déjà traité.');
         }
         throw err; // Relance les autres erreurs
       }
 
       // Si l'événement est un paiement réussi, on crée une tâche pour le worker.
-      if (event.type === "checkout.session.completed") {
+      if (event.type === 'checkout.session.completed') {
         await jobRepository.create(
-          "process_successful_payment",
+          'process_successful_payment',
           event.data.object, // Le payload de la tâche est la session Stripe
           client
         );
@@ -155,14 +153,14 @@ class PaymentService {
             order_id: orderId,
             gateway_ref: session.payment_intent,
             amount: session.amount_total / 100,
-            status: "completed",
-            method: "card",
+            status: 'completed',
+            method: 'card',
           };
           await paymentRepository.create(paymentData, client);
 
           const order = await orderRepository.updateStatus(
             orderId,
-            "completed",
+            'completed',
             client
           );
           if (!order)
@@ -193,7 +191,7 @@ class PaymentService {
       const company = await companyRepository.findById(updatedOrder.company_id);
       if (company) {
         try {
-          logger.info({ orderId }, "Génération de la facture PDF...");
+          logger.info({ orderId }, 'Génération de la facture PDF...');
           const invoicePdfBuffer = await generateInvoicePdf(
             updatedOrder,
             company,

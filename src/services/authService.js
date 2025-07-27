@@ -1,18 +1,18 @@
-import userRepository from "../repositories/userRepository.js";
-import licenseRepository from "../repositories/licenseRepository.js";
-import refreshTokenRepository from "../repositories/refreshTokenRepository.js";
+import userRepository from '../repositories/userRepository.js';
+import licenseRepository from '../repositories/licenseRepository.js';
+import refreshTokenRepository from '../repositories/refreshTokenRepository.js';
 import {
   generateAccessToken,
   generateRefreshToken,
-} from "../utils/jwtUtils.js";
-import { v4 as uuidv4 } from "uuid";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { UserDto } from "../dtos/userDto.js";
+} from '../utils/jwtUtils.js';
+import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { UserDto } from '../dtos/userDto.js';
 import {
   UnauthorizedException,
   ForbiddenException,
-} from "../exceptions/apiException.js";
+} from '../exceptions/apiException.js';
 
 /**
  * @file Gère la logique métier complexe de l'authentification, y compris la
@@ -31,12 +31,12 @@ class AuthService {
   async #authenticateUser(email, password) {
     const user = await userRepository.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException("Identifiants invalides.");
+      throw new UnauthorizedException('Identifiants invalides.');
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      throw new UnauthorizedException("Identifiants invalides.");
+      throw new UnauthorizedException('Identifiants invalides.');
     }
     return user;
   }
@@ -50,8 +50,8 @@ class AuthService {
   async loginCompanyAdmin(email, password) {
     const user = await this.#authenticateUser(email, password);
 
-    if (user.role !== "admin") {
-      throw new ForbiddenException("Accès refusé. Rôle administrateur requis.");
+    if (user.role !== 'admin') {
+      throw new ForbiddenException('Accès refusé. Rôle administrateur requis.');
     }
 
     const familyId = uuidv4();
@@ -89,8 +89,8 @@ class AuthService {
   async loginTechnician(email, password) {
     const user = await this.#authenticateUser(email, password);
 
-    if (user.role !== "technician") {
-      throw new ForbiddenException("Accès refusé. Rôle technicien requis.");
+    if (user.role !== 'technician') {
+      throw new ForbiddenException('Accès refusé. Rôle technicien requis.');
     }
 
     const license = await licenseRepository.findActiveByCompanyId(
@@ -98,7 +98,7 @@ class AuthService {
     );
     if (!license) {
       throw new ForbiddenException(
-        "La licence de votre entreprise est inactive ou a expiré."
+        'La licence de votre entreprise est inactive ou a expiré.'
       );
     }
 
@@ -136,12 +136,11 @@ class AuthService {
    */
   async refreshTokens(oldRefreshToken) {
     if (!oldRefreshToken) {
-      throw new UnauthorizedException("Jeton de rafraîchissement manquant.");
+      throw new UnauthorizedException('Jeton de rafraîchissement manquant.');
     }
 
-    const storedToken = await refreshTokenRepository.findByToken(
-      oldRefreshToken
-    );
+    const storedToken =
+      await refreshTokenRepository.findByToken(oldRefreshToken);
 
     if (!storedToken) {
       try {
@@ -152,7 +151,7 @@ class AuthService {
         await refreshTokenRepository.revokeFamily(decoded.familyId);
         // On lève l'exception de sécurité spécifique.
         throw new ForbiddenException(
-          "Tentative de réutilisation de jeton détectée. Session révoquée."
+          'Tentative de réutilisation de jeton détectée. Session révoquée.'
         );
       } catch (error) {
         // Si l'erreur est celle que nous venons de lever, on la propage.
@@ -160,14 +159,14 @@ class AuthService {
           throw error;
         }
         // Pour toute autre erreur (de jwt.verify), le token est simplement invalide.
-        throw new ForbiddenException("Jeton de rafraîchissement invalide.");
+        throw new ForbiddenException('Jeton de rafraîchissement invalide.');
       }
     }
 
     if (storedToken.is_revoked) {
       await refreshTokenRepository.revokeFamily(storedToken.family_id);
       throw new ForbiddenException(
-        "Tentative de réutilisation de jeton détectée. Session révoquée."
+        'Tentative de réutilisation de jeton détectée. Session révoquée.'
       );
     }
 
@@ -175,7 +174,7 @@ class AuthService {
 
     const user = await userRepository.findById(storedToken.user_id);
     if (!user) {
-      throw new ForbiddenException("Utilisateur associé au jeton non trouvé.");
+      throw new ForbiddenException('Utilisateur associé au jeton non trouvé.');
     }
 
     const familyId = storedToken.family_id;

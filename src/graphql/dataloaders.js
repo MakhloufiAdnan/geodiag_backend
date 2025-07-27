@@ -1,7 +1,7 @@
-import DataLoader from "dataloader";
-import companyRepository from "../repositories/companyRepository.js";
-import offerRepository from "../repositories/offerRepository.js";
-import orderRepository from "../repositories/orderRepository.js";
+import DataLoader from 'dataloader';
+import companyRepository from '../repositories/companyRepository.js';
+import offerRepository from '../repositories/offerRepository.js';
+import orderRepository from '../repositories/orderRepository.js';
 
 /**
  * Fonction de "batching" pour les compagnies.

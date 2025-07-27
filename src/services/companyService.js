@@ -1,7 +1,7 @@
-import companyRepository from "../repositories/companyRepository.js";
-import { CompanyDto } from "../dtos/companyDto.js";
-import { NotFoundException } from "../exceptions/apiException.js";
-import { createPaginatedResponse } from "../utils/paginationUtils.js";
+import companyRepository from '../repositories/companyRepository.js';
+import { CompanyDto } from '../dtos/companyDto.js';
+import { NotFoundException } from '../exceptions/apiException.js';
+import { createPaginatedResponse } from '../utils/paginationUtils.js';
 
 /**
  * @file Gère la logique métier pour les compagnies.
@@ -29,7 +29,7 @@ class CompanyService {
       totalItems,
       page,
       limit,
-      baseUrl: "/api/companies",
+      baseUrl: '/api/companies',
     });
   }
 
@@ -41,7 +41,7 @@ class CompanyService {
   async getCompanyById(id) {
     const company = await companyRepository.findById(id);
     if (!company) {
-      throw new NotFoundException("Compagnie non trouvée.");
+      throw new NotFoundException('Compagnie non trouvée.');
     }
     return new CompanyDto(company);
   }

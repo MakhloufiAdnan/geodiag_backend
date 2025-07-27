@@ -1,4 +1,4 @@
-import { pool } from "../db/index.js";
+import { pool } from '../db/index.js';
 
 /**
  * @file Gère l'accès aux données pour la file d'attente des tâches (jobs).

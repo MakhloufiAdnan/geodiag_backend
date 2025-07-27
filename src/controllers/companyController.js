@@ -1,5 +1,5 @@
-import companyService from "../services/companyService.js";
-import { CompanyDto } from "../dtos/companyDto.js";
+import companyService from '../services/companyService.js';
+import { CompanyDto } from '../dtos/companyDto.js';
 
 /**
  * @file Gère les requêtes HTTP pour l'entité "Company".
@@ -13,7 +13,7 @@ class CompanyController {
   async getAllCompanies(req, res, next) {
     try {
       // Utilise le logger de la requête au lieu du logger global
-      req.log.info("Début de la récupération des compagnies");
+      req.log.info('Début de la récupération des compagnies');
       const paginatedResult = await companyService.getAllCompanies(
         req.pagination.page,
         req.pagination.limit

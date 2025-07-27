@@ -1,6 +1,6 @@
-import { db } from "../db/index.js";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import { db } from '../db/index.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 /**
  * @file Gère l'accès et la manipulation des données pour les jetons de rafraîchissement.
@@ -42,7 +42,7 @@ class RefreshTokenRepository {
 
       // Étape 2: Interroger la BDD avec des filtres indexés pour réduire le jeu de résultats.
       const { rows } = await db.query(
-        "SELECT * FROM refresh_tokens WHERE user_id = $1 AND family_id = $2 AND is_revoked = false AND expires_at > NOW()",
+        'SELECT * FROM refresh_tokens WHERE user_id = $1 AND family_id = $2 AND is_revoked = false AND expires_at > NOW()',
         [decoded.userId, decoded.familyId]
       );
 

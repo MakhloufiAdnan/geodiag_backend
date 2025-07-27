@@ -1,4 +1,4 @@
-import { db } from "../db/index.js";
+import { db } from '../db/index.js';
 
 /**
  * @file Gère l'accès et la manipulation des données pour l'entité Order.
@@ -27,7 +27,7 @@ class OrderRepository {
    */
   async findById(id) {
     const { rows } = await db.query(
-      "SELECT * FROM orders WHERE order_id = $1",
+      'SELECT * FROM orders WHERE order_id = $1',
       [id]
     );
     return rows[0];
@@ -42,7 +42,7 @@ class OrderRepository {
    */
   async updateStatus(orderId, status, dbClient = db) {
     const { rows } = await dbClient.query(
-      "UPDATE orders SET status = $1, updated_at = NOW() WHERE order_id = $2 RETURNING *",
+      'UPDATE orders SET status = $1, updated_at = NOW() WHERE order_id = $2 RETURNING *',
       [status, orderId]
     );
     return rows[0];
@@ -55,7 +55,7 @@ class OrderRepository {
    */
   async findByIds(ids) {
     const { rows } = await db.query(
-      "SELECT * FROM orders WHERE order_id = ANY($1::uuid)",
+      'SELECT * FROM orders WHERE order_id = ANY($1::uuid)',
       [ids]
     );
     return rows;

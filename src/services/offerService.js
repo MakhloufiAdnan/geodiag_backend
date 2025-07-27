@@ -1,10 +1,10 @@
-import offerRepository from "../repositories/offerRepository.js";
-import { OfferDto } from "../dtos/offerDto.js";
-import { NotFoundException } from "../exceptions/apiException.js";
-import redisClient from "../config/redisClient.js";
-import logger from "../config/logger.js";
+import offerRepository from '../repositories/offerRepository.js';
+import { OfferDto } from '../dtos/offerDto.js';
+import { NotFoundException } from '../exceptions/apiException.js';
+import redisClient from '../config/redisClient.js';
+import logger from '../config/logger.js';
 
-const CACHE_KEY_OFFERS = "offers:all";
+const CACHE_KEY_OFFERS = 'offers:all';
 const CACHE_TTL_SECONDS = 3600; // 1 heure
 
 /**
@@ -12,7 +12,6 @@ const CACHE_TTL_SECONDS = 3600; // 1 heure
  * @class OfferService
  */
 class OfferService {
-  
   /**
    * Invalide (supprime) le cache contenant la liste de toutes les offres.
    * Cette méthode est appelée après chaque opération d'écriture (création, mise à jour, suppression).
@@ -40,17 +39,17 @@ class OfferService {
     try {
       const cachedOffers = await redisClient.get(CACHE_KEY_OFFERS);
       if (cachedOffers) {
-        logger.info("CACHE HIT pour les offres");
+        logger.info('CACHE HIT pour les offres');
         return JSON.parse(cachedOffers);
       }
     } catch (err) {
       logger.error(
         { err },
-        "Erreur lors de la lecture du cache Redis pour les offres."
+        'Erreur lors de la lecture du cache Redis pour les offres.'
       );
     }
 
-    logger.info("CACHE MISS pour les offres. Récupération depuis la BDD.");
+    logger.info('CACHE MISS pour les offres. Récupération depuis la BDD.');
     const offersFromDb = await offerRepository.findAllPublic();
     const offersDto = offersFromDb.map((offer) => new OfferDto(offer));
 
@@ -58,7 +57,7 @@ class OfferService {
       await redisClient.set(
         CACHE_KEY_OFFERS,
         JSON.stringify(offersDto),
-        "EX",
+        'EX',
         CACHE_TTL_SECONDS
       );
     } catch (err) {
@@ -82,7 +81,7 @@ class OfferService {
   async getOfferById(id) {
     const offer = await offerRepository.findById(id);
     if (!offer) {
-      throw new NotFoundException("Offre non trouvée.");
+      throw new NotFoundException('Offre non trouvée.');
     }
     return offer;
   }
@@ -109,7 +108,7 @@ class OfferService {
   async updateOffer(id, offerData) {
     const updatedOffer = await offerRepository.update(id, offerData);
     if (!updatedOffer) {
-      throw new NotFoundException("Offre non trouvée pour la mise à jour.");
+      throw new NotFoundException('Offre non trouvée pour la mise à jour.');
     }
 
     await this.#invalidateOffersCache();
@@ -126,7 +125,7 @@ class OfferService {
   async deleteOffer(id) {
     const deletedOffer = await offerRepository.delete(id);
     if (!deletedOffer) {
-      throw new NotFoundException("Offre non trouvée pour la suppression.");
+      throw new NotFoundException('Offre non trouvée pour la suppression.');
     }
 
     await this.#invalidateOffersCache();

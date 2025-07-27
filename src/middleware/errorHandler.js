@@ -1,4 +1,4 @@
-import logger from "../config/logger.js";
+import logger from '../config/logger.js';
 
 /**
  * @description Middleware Express pour attraper et formater toutes les erreurs de manière robuste.
@@ -15,10 +15,10 @@ export const errorHandler = (err, req, res, next) => {
   // Si err.statusCode existe, on l'utilise, sinon 500 par défaut.
   const statusCode = err.statusCode || 500;
   const message =
-    statusCode < 500 ? err.message : "Une erreur inattendue est survenue.";
+    statusCode < 500 ? err.message : 'Une erreur inattendue est survenue.';
 
   // Log l'erreur (sauf en environnement de test pour garder une sortie propre).
-  if (process.env.NODE_ENV !== "test") {
+  if (process.env.NODE_ENV !== 'test') {
     const log = req.log || logger;
     log.error("--- GESTIONNAIRE D'ERREURS ATTRAPÉ ---", {
       err: {

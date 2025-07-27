@@ -1,4 +1,4 @@
-import authService from "../services/authService.js";
+import authService from '../services/authService.js';
 
 /**
  * @file Gère les requêtes HTTP pour l'authentification.
@@ -12,12 +12,12 @@ class AuthController {
    * @private
    */
   #sendRefreshTokenCookie(res, token) {
-    res.cookie("refreshToken", token, {
+    res.cookie('refreshToken', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-      path: "/api/auth",
+      path: '/api/auth',
     });
   }
 
@@ -67,7 +67,7 @@ class AuthController {
       this.#sendRefreshTokenCookie(res, newRefreshToken);
       res.status(200).json({ accessToken });
     } catch (error) {
-      res.clearCookie("refreshToken", { path: "/api/auth" });
+      res.clearCookie('refreshToken', { path: '/api/auth' });
       next(error);
     }
   };
@@ -80,7 +80,7 @@ class AuthController {
       const refreshToken = req.cookies.refreshToken;
       await authService.logout(refreshToken);
 
-      res.clearCookie("refreshToken", { path: "/api/auth" });
+      res.clearCookie('refreshToken', { path: '/api/auth' });
       res.status(204).send();
     } catch (error) {
       next(error);

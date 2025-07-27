@@ -1,4 +1,4 @@
-import { db } from "../db/index.js";
+import { db } from '../db/index.js';
 
 /**
  * @file Gère l'accès et la manipulation des données pour l'entité Vehicle.
@@ -11,7 +11,7 @@ class VehicleRepository {
    */
   async findById(id) {
     const { rows } = await db.query(
-      "SELECT * FROM vehicles WHERE vehicle_id = $1",
+      'SELECT * FROM vehicles WHERE vehicle_id = $1',
       [id]
     );
     return rows[0];
@@ -24,7 +24,7 @@ class VehicleRepository {
    */
   async findByRegistration(registration) {
     const { rows } = await db.query(
-      "SELECT * FROM vehicles WHERE registration = $1",
+      'SELECT * FROM vehicles WHERE registration = $1',
       [registration]
     );
     return rows[0];
@@ -36,7 +36,7 @@ class VehicleRepository {
    * @returns {Promise<object|undefined>} L'objet véhicule s'il est trouvé.
    */
   async findByVin(vin) {
-    const { rows } = await db.query("SELECT * FROM vehicles WHERE vin = $1", [
+    const { rows } = await db.query('SELECT * FROM vehicles WHERE vin = $1', [
       vin,
     ]);
     return rows[0];
@@ -83,7 +83,7 @@ class VehicleRepository {
    */
   async findAll(limit, offset) {
     const { rows } = await db.query(
-      "SELECT * FROM vehicles ORDER BY registration LIMIT $1 OFFSET $2",
+      'SELECT * FROM vehicles ORDER BY registration LIMIT $1 OFFSET $2',
       [limit, offset]
     );
     return rows;
@@ -94,7 +94,7 @@ class VehicleRepository {
    * @returns {Promise<number>} Le nombre total de véhicules.
    */
   async countAll() {
-    const { rows } = await db.query("SELECT COUNT(*) FROM vehicles");
+    const { rows } = await db.query('SELECT COUNT(*) FROM vehicles');
     return parseInt(rows[0].count, 10);
   }
 }

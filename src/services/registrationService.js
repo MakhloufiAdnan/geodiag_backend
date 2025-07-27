@@ -1,16 +1,16 @@
-import companyRepository from "../repositories/companyRepository.js";
-import userRepository from "../repositories/userRepository.js";
-import bcrypt from "bcrypt";
-import { pool } from "../db/index.js";
+import companyRepository from '../repositories/companyRepository.js';
+import userRepository from '../repositories/userRepository.js';
+import bcrypt from 'bcrypt';
+import { pool } from '../db/index.js';
 import {
   generateAccessToken,
   generateRefreshToken,
-} from "../utils/jwtUtils.js";
-import { UserDto } from "../dtos/userDto.js";
+} from '../utils/jwtUtils.js';
+import { UserDto } from '../dtos/userDto.js';
 import {
   ConflictException,
   BadRequestException,
-} from "../exceptions/apiException.js";
+} from '../exceptions/apiException.js';
 
 /**
  * @file Gère le processus d'inscription d'une nouvelle compagnie.
@@ -37,17 +37,17 @@ class RegistrationService {
     );
     if (existingCompany) {
       // Utilise ConflictException pour un email déjà existant.
-      throw new ConflictException("Une entreprise avec cet email existe déjà.");
+      throw new ConflictException('Une entreprise avec cet email existe déjà.');
     }
 
     const existingAdmin = await userRepository.findByEmail(adminData.email);
     if (existingAdmin) {
-      throw new ConflictException("Un utilisateur avec cet email existe déjà.");
+      throw new ConflictException('Un utilisateur avec cet email existe déjà.');
     }
 
     const client = await pool.connect();
     try {
-      await client.query("BEGIN");
+      await client.query('BEGIN');
 
       const newCompany = await companyRepository.create(companyData, client);
 
@@ -59,7 +59,7 @@ class RegistrationService {
           ...adminData,
           password_hash,
           company_id: newCompany.company_id,
-          role: "admin",
+          role: 'admin',
         },
         client
       );
@@ -72,7 +72,7 @@ class RegistrationService {
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
 
-      await client.query("COMMIT");
+      await client.query('COMMIT');
 
       return {
         accessToken,
@@ -81,7 +81,7 @@ class RegistrationService {
         company: newCompany,
       };
     } catch (e) {
-      await client.query("ROLLBACK");
+      await client.query('ROLLBACK');
 
       // Relance l'erreur pour qu'elle soit gérée par le errorHandler central.
       // Si c'est une exceptions, elle sera préservée.

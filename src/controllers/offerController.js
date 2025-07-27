@@ -1,4 +1,4 @@
-import offerService from "../services/offerService.js";
+import offerService from '../services/offerService.js';
 
 /**
  * @file Gère les requêtes HTTP pour les offres commerciales.

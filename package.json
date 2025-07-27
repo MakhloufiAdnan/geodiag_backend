@@ -15,7 +15,8 @@
     "lint": "eslint . --ext .js",
     "migrate": "node-pg-migrate",
     "worker": "node src/worker.js",
-    "tree": "tree /f | findstr /v /i \"node_modules coverage dist .git package-lock.json .d.ts\""
+    "tree": "tree /f | findstr /v /i \"node_modules coverage dist .git package-lock.json .d.ts\"",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\""
   },
   "dependencies": {
     "@apollo/server": "^4.10.4",
@@ -29,6 +30,7 @@
     "graphql": "^16.8.1",
     "graphql-depth-limit": "^1.1.0",
     "graphql-query-complexity": "^1.1.0",
+    "helmet": "^8.1.0",
     "ioredis": "^5.6.1",
     "joi": "^17.13.1",
     "json-rules-engine": "^7.3.1",
@@ -55,6 +57,7 @@
     "jest": "^29.7.0",
     "nodemailer-mock": "^2.0.9",
     "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
     "supertest": "^7.0.0"
   },
   "keywords": [

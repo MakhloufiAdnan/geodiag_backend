@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken';
 
 /**
  * @file Utilitaires pour la génération et la vérification des JSON Web Tokens (JWT).
@@ -11,7 +11,7 @@ import jwt from "jsonwebtoken";
  */
 export function generateAccessToken(payload) {
   return jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRATION || "15m",
+    expiresIn: process.env.JWT_ACCESS_EXPIRATION || '15m',
   });
 }
 
@@ -22,6 +22,6 @@ export function generateAccessToken(payload) {
  */
 export function generateRefreshToken(payload) {
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRATION || "7d",
+    expiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
   });
 }
