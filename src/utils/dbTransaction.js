@@ -1,4 +1,4 @@
-import { pool } from '../db/index.js';
+import { pool } from "../db/index.js";
 
 /**
  * @file Fournit un wrapper pour exécuter des opérations dans une transaction de base de données.
@@ -24,20 +24,19 @@ import { pool } from '../db/index.js';
  * });
  */
 export async function withTransaction(callback) {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const result = await callback(client);
-        await client.query('COMMIT');
-        return result;
-    } catch (error) {
-        await client.query('ROLLBACK');
-        
-        // Relance l'erreur pour que la couche de service ou le contrôleur puisse la gérer
-        throw error;
-    } finally {
-      
-        // Assure que la connexion est toujours libérée et retournée au pool
-        client.release();
-    }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await callback(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    // Relance l'erreur pour que la couche de service ou le contrôleur puisse la gérer
+    throw error;
+  } finally {
+    // Assure que la connexion est toujours libérée et retournée au pool
+    client.release();
+  }
 }

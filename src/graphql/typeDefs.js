@@ -106,4 +106,3 @@ export const typeDefs = `#graphql
         createCheckoutSession(orderId: ID!): CheckoutSessionPayload!
     }
 `;
-

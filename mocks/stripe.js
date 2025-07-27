@@ -24,7 +24,6 @@ const stripeMock = jest.fn().mockImplementation(() => ({
 // Attacher les méthodes statiques au constructeur mocké
 stripeMock.webhooks = {
   constructEvent: jest.fn((payload, _sig, _secret) => {
-    
     // En conditions de test réelles, le payload est un Buffer
     if (Buffer.isBuffer(payload)) {
       return JSON.parse(payload.toString());

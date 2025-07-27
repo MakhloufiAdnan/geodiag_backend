@@ -1,6 +1,5 @@
 import authService from "../services/authService.js";
 
-
 /**
  * @file Gère les requêtes HTTP pour l'authentification.
  * @description Ce contrôleur utilise des fonctions fléchées pour garantir que `this`

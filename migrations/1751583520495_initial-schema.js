@@ -9,7 +9,7 @@ export const shorthands = undefined;
  * @returns {Promise<void> | void}
  */
 export const up = (pgm) => {
-    pgm.sql(`
+  pgm.sql(`
     -- ########## 0. FONCTIONS TRIGGER ##########
     -- Met à jour le champ 'updated_at' à la date/heure actuelle.
     CREATE OR REPLACE FUNCTION trigger_set_timestamp()
@@ -331,7 +331,7 @@ export const up = (pgm) => {
  * @returns {Promise<void> | void}
  */
 export const down = (pgm) => {
-    pgm.sql(`
+  pgm.sql(`
     -- ########## 6. SUPPRESSION DES INDEX ##########
     DROP INDEX IF EXISTS idx_refresh_tokens_family_id;
     DROP INDEX IF EXISTS idx_users_email;

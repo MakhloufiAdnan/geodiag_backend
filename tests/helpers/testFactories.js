@@ -3,9 +3,10 @@
  * dans la base de données (compagnies, utilisateurs, etc.).
  */
 
-import bcrypt from 'bcrypt';
-import { pool } from '../../src/db/index.js';
-import { generateAccessToken } from '../../src/utils/jwtUtils.js';
+import bcrypt from "bcrypt";
+import { pool } from "../../src/db/index.js";
+import { generateAccessToken } from "../../src/utils/jwtUtils.js";
+import { mockRegistrationData } from "../../mocks/mockData.js";
 
 /**
  * Crée une compagnie de test et retourne son ID.
@@ -14,11 +15,11 @@ import { generateAccessToken } from '../../src/utils/jwtUtils.js';
  * @returns {Promise<string>} L'ID de la compagnie créée.
  */
 export const createTestCompany = async (name, email) => {
-    const res = await pool.query(
-        "INSERT INTO companies (name, email) VALUES ($1, $2) RETURNING company_id",
-        [name, email]
-    );
-    return res.rows[0].company_id;
+  const res = await pool.query(
+    "INSERT INTO companies (name, email) VALUES ($1, $2) RETURNING company_id",
+    [name, email]
+  );
+  return res.rows[0].company_id;
 };
 
 /**
@@ -29,12 +30,13 @@ export const createTestCompany = async (name, email) => {
  * @returns {Promise<{userId: string, token: string}>} L'ID de l'utilisateur et son accessToken.
  */
 export const createTestUser = async (companyId, role, email) => {
-    const password = await bcrypt.hash('password123', 10);
-    const res = await pool.query(
-        "INSERT INTO users (company_id, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id",
-        [companyId, email, password, role]
-    );
-    const userId = res.rows[0].user_id;
-    const token = generateAccessToken({ userId, companyId, role });
-    return { userId, token };
+  // Utilise le mot de passe depuis les mocks pour la cohérence
+  const password = await bcrypt.hash(mockRegistrationData.adminData.password, 10);
+  const res = await pool.query(
+    "INSERT INTO users (company_id, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id",
+    [companyId, email, password, role]
+  );
+  const userId = res.rows[0].user_id;
+  const token = generateAccessToken({ userId, companyId, role });
+  return { userId, token };
 };

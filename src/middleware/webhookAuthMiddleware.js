@@ -1,36 +1,42 @@
-import stripe from 'stripe';
-import logger from '../config/logger.js';
-
+import stripe from "stripe";
+import logger from "../config/logger.js";
 
 /**
  * Middleware pour sécuriser les webhooks de paiement.
  */
 export async function validateWebhook(req, res, next) {
+  // 1. Vérifier que la clé secrète du webhook est bien configurée
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    logger.error(
+      "❌ La clé secrète du webhook Stripe (STRIPE_WEBHOOK_SECRET) n'est pas définie."
+    );
+    return res.status(500).send("Erreur de configuration du serveur.");
+  }
 
-    // 1. Vérifier que la clé secrète du webhook est bien configurée
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-        logger.error('❌ La clé secrète du webhook Stripe (STRIPE_WEBHOOK_SECRET) n\'est pas définie.');
-        return res.status(500).send('Erreur de configuration du serveur.');
-    }
+  // 2. Récupérer la signature depuis les en-têtes
+  const signature = req.headers["stripe-signature"];
 
-    // 2. Récupérer la signature depuis les en-têtes
-    const signature = req.headers['stripe-signature'];
+  try {
+    // 3. Utiliser la librairie Stripe pour construire et valider l'événement.
+    // C'est ici que le corps brut (req.body, qui est un Buffer grâce à express.raw()) est essentiel.
+    const event = stripe.webhooks.constructEvent(
+      req.body,
+      signature,
+      webhookSecret
+    );
 
-    try {
-        // 3. Utiliser la librairie Stripe pour construire et valider l'événement.
-        // C'est ici que le corps brut (req.body, qui est un Buffer grâce à express.raw()) est essentiel.
-        const event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+    // 4. Si la validation réussit, on attache l'événement vérifié à la requête.
+    // Le contrôleur suivant pourra l'utiliser en toute sécurité.
+    req.webhookEvent = event;
 
-        // 4. Si la validation réussit, on attache l'événement vérifié à la requête.
-        // Le contrôleur suivant pourra l'utiliser en toute sécurité.
-        req.webhookEvent = event;
-        
-        logger.info({ eventId: event.id, eventType: event.type }, '✅ Webhook Stripe validé avec succès.');
-        next();
-
-    } catch (err) {
-        logger.error({ err, signature }, '❌ Échec de la validation du webhook');
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
+    logger.info(
+      { eventId: event.id, eventType: event.type },
+      "✅ Webhook Stripe validé avec succès."
+    );
+    next();
+  } catch (err) {
+    logger.error({ err, signature }, "❌ Échec de la validation du webhook");
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 }
