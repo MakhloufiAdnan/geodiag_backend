@@ -59,7 +59,7 @@ jobs:
         run: npm test
         env:
           DATABASE_URL: postgresql://geodiag:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/geodiag_test
-          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+          JWT_ACCESS_SECRET: ${{ secrets.TEST_JWT_ACCESS_SECRET }}
 
   # ===============================================
   # ==       JOB 2: DÉPLOYER EN PRODUCTION       ==
