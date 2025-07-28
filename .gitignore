@@ -260,3 +260,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/node,java,windows,macos,linux,visualstudiocode
+
+# Fichiers de configuration de l'éditeur
+.prettierrc

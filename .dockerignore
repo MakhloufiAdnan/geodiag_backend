@@ -6,3 +6,6 @@ node_modules
 
 # Fichiers de log
 npm-debug.log
+
+# Fichiers de configuration de l'éditeur
+.prettierrc
