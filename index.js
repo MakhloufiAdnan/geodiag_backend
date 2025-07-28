@@ -9,48 +9,48 @@
 // ========================================================================
 // ==                      IMPORTS DE BASE ET CONFIGURATION              ==
 // ========================================================================
-import "dotenv/config";
-import express from "express";
+import 'dotenv/config';
+import express from 'express';
 import helmet from 'helmet';
-import http from "http";
-import cors from "cors";
-import jwt from "jsonwebtoken";
-import { ApolloServer } from "@apollo/server";
-import { expressMiddleware } from "@apollo/server/express4";
-import { GraphQLError } from "graphql";
-import logger from "./src/config/logger.js";
-import cookieParser from "cookie-parser";
+import http from 'http';
+import cors from 'cors';
+import jwt from 'jsonwebtoken';
+import { ApolloServer } from '@apollo/server';
+import { expressMiddleware } from '@apollo/server/express4';
+import { GraphQLError } from 'graphql';
+import logger from './src/config/logger.js';
+import cookieParser from 'cookie-parser';
 
 // ========================================================================
 // ==                      MODULES DE SÉCURITÉ GRAPHQL                   ==
 // ========================================================================
-import depthLimit from "graphql-depth-limit";
+import depthLimit from 'graphql-depth-limit';
 import {
   createComplexityRule,
   simpleEstimator,
-} from "graphql-query-complexity";
-import { createDataLoaders } from "./src/graphql/dataloaders.js";
+} from 'graphql-query-complexity';
+import { createDataLoaders } from './src/graphql/dataloaders.js';
 
 // ========================================================================
 // ==                      MODULES APPLICATIFS                           ==
 // ========================================================================
-import { pool } from "./src/db/index.js";
-import { checkDatabaseConnection } from "./src/db/connection.js";
-import { typeDefs } from "./src/graphql/typeDefs.js";
-import { resolvers } from "./src/graphql/resolvers.js";
-import { errorHandler } from "./src/middleware/errorHandler.js";
-import { requestLogger } from "./src/middleware/loggingMiddleware.js";
+import { pool } from './src/db/index.js';
+import { checkDatabaseConnection } from './src/db/connection.js';
+import { typeDefs } from './src/graphql/typeDefs.js';
+import { resolvers } from './src/graphql/resolvers.js';
+import { errorHandler } from './src/middleware/errorHandler.js';
+import { requestLogger } from './src/middleware/loggingMiddleware.js';
 
 // Importation de toutes les routes REST de l'application
-import authRoutes from "./src/routes/authRoutes.js";
-import companyRoutes from "./src/routes/companyRoutes.js";
-import offerRoutes from "./src/routes/offerRoutes.js";
-import orderRoutes from "./src/routes/orderRoutes.js";
-import paymentRoutes from "./src/routes/paymentRoutes.js";
-import webhookRoutes from "./src/routes/paymentWebhookRoutes.js";
-import registrationRoutes from "./src/routes/registrationRoutes.js";
-import userRoutes from "./src/routes/userRoutes.js";
-import vehicleRoutes from "./src/routes/vehicleRoutes.js";
+import authRoutes from './src/routes/authRoutes.js';
+import companyRoutes from './src/routes/companyRoutes.js';
+import offerRoutes from './src/routes/offerRoutes.js';
+import orderRoutes from './src/routes/orderRoutes.js';
+import paymentRoutes from './src/routes/paymentRoutes.js';
+import webhookRoutes from './src/routes/paymentWebhookRoutes.js';
+import registrationRoutes from './src/routes/registrationRoutes.js';
+import userRoutes from './src/routes/userRoutes.js';
+import vehicleRoutes from './src/routes/vehicleRoutes.js';
 
 /**
  * @async
@@ -111,7 +111,7 @@ async function startServer() {
     await apolloServer.start();
 
     // --- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS ---
-    
+
     // Il ajoute des en-têtes de sécurité à TOUTES les réponses.
     app.use(helmet());
 
@@ -126,14 +126,14 @@ async function startServer() {
      * @see https://expressjs.com/en/resources/middleware/cors.html
      */
     const allowedOrigins = process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(",")
+      ? process.env.ALLOWED_ORIGINS.split(',')
       : [];
     const corsOptions = {
       origin: (origin, callback) => {
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
-          callback(new Error("Not allowed by CORS"));
+          callback(new Error('Not allowed by CORS'));
         }
       },
       credentials: true,
@@ -146,33 +146,33 @@ async function startServer() {
      * @description Route de "Health Check" pour la supervision du service.
      * Permet aux systèmes de monitoring (ex: Kubernetes, AWS) de vérifier si le service est en ligne.
      */
-    app.get("/", (req, res) => {
-      res.status(200).send("API Geodiag is running with REST and GraphQL. 🎉");
+    app.get('/', (req, res) => {
+      res.status(200).send('API Geodiag is running with REST and GraphQL. 🎉');
     });
 
     // 1. La route pour les webhooks Stripe est enregistrée AVANT le parser JSON global.
     // C'est crucial car le middleware de vérification de signature de Stripe a besoin du corps brut (raw body) de la requête.
-    app.use("/api", webhookRoutes);
+    app.use('/api', webhookRoutes);
 
     // 2. Activation du parser JSON pour toutes les autres routes.
     app.use(express.json());
 
     // 3. Enregistrement des routes de l'API REST.
-    app.use("/api", authRoutes);
-    app.use("/api", companyRoutes);
-    app.use("/api", offerRoutes);
-    app.use("/api", orderRoutes);
-    app.use("/api", paymentRoutes);
-    app.use("/api", registrationRoutes);
-    app.use("/api", userRoutes);
-    app.use("/api", vehicleRoutes);
+    app.use('/api', authRoutes);
+    app.use('/api', companyRoutes);
+    app.use('/api', offerRoutes);
+    app.use('/api', orderRoutes);
+    app.use('/api', paymentRoutes);
+    app.use('/api', registrationRoutes);
+    app.use('/api', userRoutes);
+    app.use('/api', vehicleRoutes);
 
     /**
      * @description Enregistrement du middleware GraphQL.
      * Toutes les requêtes vers '/graphql' seront gérées par Apollo Server.
      */
     app.use(
-      "/graphql",
+      '/graphql',
       expressMiddleware(apolloServer, {
         /**
          * @description Fonction de contexte pour les requêtes GraphQL.
@@ -182,8 +182,8 @@ async function startServer() {
          * @returns {Promise<object>} Le contexte enrichi avec les informations de l'utilisateur.
          */
         context: async ({ req }) => {
-          const authHeader = req.headers?.authorization ?? "";
-          if (!authHeader.startsWith("Bearer ")) {
+          const authHeader = req.headers?.authorization ?? '';
+          if (!authHeader.startsWith('Bearer ')) {
             return { dataloaders: createDataLoaders() };
           }
 
@@ -195,7 +195,7 @@ async function startServer() {
             // Récupère les données utilisateur à jour pour chaque requête,
             // garantissant que les permissions sont toujours fraîches.
             const { rows } = await pool.query(
-              "SELECT user_id, company_id, email, role, is_active FROM users WHERE user_id = $1",
+              'SELECT user_id, company_id, email, role, is_active FROM users WHERE user_id = $1',
               [decoded.userId]
             );
 
@@ -228,13 +228,14 @@ async function startServer() {
     app.use(errorHandler);
 
     // --- ÉTAPE 6 : LANCEMENT DU SERVEUR ---
-    const PORT = process.env.PORT || 4000;
-    await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
+    const PORT = process.env.PORT || 3000;
 
-    logger.debug(`🚀 Serveur prêt sur http://localhost:${PORT}`);
-    logger.debug(
-      `✨ Endpoint GraphQL prêt sur http://localhost:${PORT}/graphql`
+    await new Promise((resolve) =>
+      httpServer.listen({ port: PORT, host: '0.0.0.0' }, resolve)
     );
+
+    logger.info(`🚀 Serveur prêt sur http://0.0.0.0:${PORT}`);
+    logger.info(`✨ Endpoint GraphQL prêt sur http://0.0.0.0:${PORT}/graphql`);
   } catch (error) {
     // Capture les erreurs critiques au démarrage (ex: échec de la connexion à la BDD).
     logger.fatal(
