@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
   ConflictException,
-} from '../../src/exceptions/apiException.js';
+} from '../../src/exceptions/ApiException.js';
 import { LicenseDto } from '../../src/dtos/licenseDto.js';
 // Importer les données de mock nécessaires.
 import {

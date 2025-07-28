@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { ForbiddenException } from '../../src/exceptions/apiException.js';
+import { ForbiddenException } from '../../src/exceptions/ApiException.js';
 
 /**
  * @file Tests unitaires pour PaymentController.

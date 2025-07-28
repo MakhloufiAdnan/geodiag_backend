@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { UnauthorizedException } from '../../src/exceptions/apiException.js';
+import { UnauthorizedException } from '../../src/exceptions/ApiException.js';
 import { mockAdminUser, mockTechnicianUser } from '../../mocks/mockData.js';
 
 /**

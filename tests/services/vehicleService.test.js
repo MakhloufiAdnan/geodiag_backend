@@ -2,7 +2,7 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import {
   ConflictException,
   NotFoundException,
-} from '../../src/exceptions/apiException.js';
+} from '../../src/exceptions/ApiException.js';
 import { VehicleDto } from '../../src/dtos/vehicleDto.js';
 import { mockVehicle } from '../../mocks/mockData.js';
 

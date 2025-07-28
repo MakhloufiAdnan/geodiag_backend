@@ -1,4 +1,4 @@
-import { BadRequestException } from '../exceptions/apiException.js';
+import { BadRequestException } from '../exceptions/ApiException.js';
 
 /**
  * @file Middleware pour parser et valider les paramètres de pagination.

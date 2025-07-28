@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { ApiException } from '../exceptions/apiException.js';
+import { ApiException } from '../exceptions/ApiException.js';
 import logger from '../config/logger.js';
 
 /**

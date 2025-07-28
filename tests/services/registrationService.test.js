@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { ConflictException } from '../../src/exceptions/apiException.js';
+import { ConflictException } from '../../src/exceptions/ApiException.js';
 import { mockRegistrationData } from '../../mocks/mockData.js'; // Importation des données centralisées
 
 /**

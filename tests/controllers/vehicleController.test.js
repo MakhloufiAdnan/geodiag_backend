@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { NotFoundException } from '../../src/exceptions/apiException.js';
+import { NotFoundException } from '../../src/exceptions/ApiException.js';
 /**
  * @file Tests unitaires pour VehicleController.
  * @description Valide la logique du contrôleur pour la gestion des véhicules.

@@ -3,7 +3,7 @@ import { VehicleDto } from '../dtos/vehicleDto.js';
 import {
   NotFoundException,
   ConflictException,
-} from '../exceptions/apiException.js';
+} from '../exceptions/ApiException.js';
 import { createPaginatedResponse } from '../utils/paginationUtils.js';
 
 /**

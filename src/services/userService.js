@@ -5,7 +5,7 @@ import { createPaginatedResponse } from '../utils/paginationUtils.js';
 import {
   NotFoundException,
   ConflictException,
-} from '../exceptions/apiException.js';
+} from '../exceptions/ApiException.js';
 
 /**
  * @file Gère la logique métier pour les utilisateurs (CRUD).

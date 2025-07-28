@@ -1,6 +1,6 @@
 import companyRepository from '../repositories/companyRepository.js';
 import { CompanyDto } from '../dtos/companyDto.js';
-import { NotFoundException } from '../exceptions/apiException.js';
+import { NotFoundException } from '../exceptions/ApiException.js';
 import { createPaginatedResponse } from '../utils/paginationUtils.js';
 
 /**

@@ -2,7 +2,7 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import {
   NotFoundException,
   ConflictException,
-} from '../../src/exceptions/apiException.js';
+} from '../../src/exceptions/ApiException.js';
 import { mockUser } from '../../mocks/mockData.js';
 
 /**

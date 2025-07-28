@@ -14,7 +14,7 @@ import {
   NotFoundException,
   ApiException,
   ConflictException,
-} from '../exceptions/apiException.js';
+} from '../exceptions/ApiException.js';
 
 import logger from '../config/logger.js';
 import { withTransaction } from '../utils/dbTransaction.js';

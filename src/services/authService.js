@@ -12,7 +12,7 @@ import { UserDto } from '../dtos/userDto.js';
 import {
   UnauthorizedException,
   ForbiddenException,
-} from '../exceptions/apiException.js';
+} from '../exceptions/ApiException.js';
 
 /**
  * @file Gère la logique métier complexe de l'authentification, y compris la

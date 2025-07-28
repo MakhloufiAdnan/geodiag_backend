@@ -5,7 +5,7 @@
  */
 
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { ConflictException } from '../../src/exceptions/apiException.js';
+import { ConflictException } from '../../src/exceptions/ApiException.js';
 
 // Mock du service d'inscription pour isoler le contrôleur.
 jest.unstable_mockModule('../../src/services/registrationService.js', () => ({

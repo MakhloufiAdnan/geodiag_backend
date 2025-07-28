@@ -1,5 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { NotFoundException } from '../../src/exceptions/apiException.js';
+import { NotFoundException } from '../../src/exceptions/ApiException.js';
 import { mockOffer } from '../../mocks/mockData.js';
 
 /**

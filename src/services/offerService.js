@@ -1,6 +1,6 @@
 import offerRepository from '../repositories/offerRepository.js';
 import { OfferDto } from '../dtos/offerDto.js';
-import { NotFoundException } from '../exceptions/apiException.js';
+import { NotFoundException } from '../exceptions/ApiException.js';
 import redisClient from '../config/redisClient.js';
 import logger from '../config/logger.js';
 

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '../exceptions/apiException.js';
+import { ForbiddenException } from '../exceptions/ApiException.js';
 
 export const authorize = (...roles) => {
   return (req, res, next) => {

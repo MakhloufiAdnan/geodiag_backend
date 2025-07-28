@@ -10,7 +10,7 @@ import { UserDto } from '../dtos/userDto.js';
 import {
   ConflictException,
   BadRequestException,
-} from '../exceptions/apiException.js';
+} from '../exceptions/ApiException.js';
 
 /**
  * @file Gère le processus d'inscription d'une nouvelle compagnie.

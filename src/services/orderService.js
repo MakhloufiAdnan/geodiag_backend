@@ -5,7 +5,7 @@ import { OrderDto } from '../dtos/orderDto.js';
 import {
   ForbiddenException,
   NotFoundException,
-} from '../exceptions/apiException.js';
+} from '../exceptions/ApiException.js';
 
 /**
  * @class OrderService
