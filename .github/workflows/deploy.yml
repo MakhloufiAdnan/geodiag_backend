@@ -85,6 +85,31 @@ jobs:
           done
           echo "Redis is up and running!"
 
+          - name: Debug ALL Environment Variables Passed to Node.js
+        run: |
+          echo "--- Environment Variables ---"
+          # Filtre pour montrer celles qui sont généralement utilisées par Node.js et votre app
+          env | grep -E '^(JWT|STRIPE|PAYMENT|EMAIL|REDIS|FRONTEND|DATABASE_URL|NODE_ENV|PORT|USER|PASS)' || true
+          echo "-----------------------------"
+        env:
+          # Répétez ici toutes les variables que vous avez listées pour l'étape 'Run Tests'
+          # Cela garantit que cette étape de débogage voit les mêmes variables que 'npm test'
+          DATABASE_URL: postgresql://geodiag:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/geodiag_test
+          REDIS_URL: redis://localhost:6379
+          JWT_ACCESS_SECRET: ${{ secrets.TEST_JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
+          JWT_EXPIRATION: ${{ secrets.TEST_JWT_EXPIRATION }}
+          JWT_REFRESH_EXPIRATION: ${{ secrets.TEST_JWT_REFRESH_EXPIRATION }}
+          STRIPE_SECRET_KEY: ${{ secrets.TEST_STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.TEST_STRIPE_WEBHOOK_SECRET }}
+          PAYMENT_SUCCESS_URL: ${{ secrets.TEST_PAYMENT_SUCCESS_URL }}
+          PAYMENT_CANCEL_URL: ${{ secrets.TEST_PAYMENT_CANCEL_URL }}
+          EMAIL_HOST: 'smtp.example.com'
+          PORT: '587' # Le port de l'email
+          USER: 'test@example.com'
+          PASS: 'testpassword'
+          FRONTEND_URL: 'http://localhost:3000'
+          
       - name: Run Tests
         run: npm test
         env:
