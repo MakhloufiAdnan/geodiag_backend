@@ -18,7 +18,12 @@ export default [
     },
     rules: {
       // Règle pour ignorer le paramètre 'next' non utilisé dans Express
-      "no-unused-vars": ["error", { "argsIgnorePattern": "^next$" }],
+      "no-unused-vars": ["error", { 
+        "argsIgnorePattern": "^_|^next$",
+        'vars': 'all',
+        'args': 'after-used',
+        'ignoreRestSiblings': true,
+      }],
     },
   },
 
@@ -59,6 +64,7 @@ export default [
     ignores: [
       "node_modules/",
       "package-lock.json",
+      "coverage/",
     ],
   },
 ];

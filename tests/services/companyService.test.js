@@ -1,86 +1,61 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { mockCompany } from '../../mocks/mockData.js';
 
 /**
- * @file Tests unitaires pour CompanyService
+ * @file Tests unitaires pour CompanyService.
  */
 
-// 1. Mocker le repository
 jest.unstable_mockModule('../../src/repositories/companyRepository.js', () => ({
-    default: {
-        findAll: jest.fn(),
-        findById: jest.fn(),
-        findByEmail: jest.fn(),
-        create: jest.fn(),
-    },
+  default: {
+    findAll: jest.fn(),
+    findById: jest.fn(),
+    countAll: jest.fn(),
+  },
 }));
 
-// 2. Imports
-const { default: companyRepository } = await import('../../src/repositories/companyRepository.js');
-const { default: companyService } = await import('../../src/services/companyService.js');
+const { default: companyRepository } = await import(
+  '../../src/repositories/companyRepository.js'
+);
+const { default: companyService } = await import(
+  '../../src/services/companyService.js'
+);
 
 describe('CompanyService', () => {
-    
-    // 3. Définir des utilisateurs simulés
-    const mockAdminUser = { userId: 'admin-uuid', role: 'admin' };
-    const mockTechnicianUser = { userId: 'tech-uuid', role: 'technician' };
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-    beforeEach(() => {
-        jest.clearAllMocks();
+  describe('getAllCompanies', () => {
+    it('doit retourner une liste paginée de DTOs', async () => {
+      // Arrange
+      const fakeCompanies = [mockCompany];
+      companyRepository.findAll.mockResolvedValue(fakeCompanies);
+      companyRepository.countAll.mockResolvedValue(1);
+
+      // Act
+      const result = await companyService.getAllCompanies(1, 10);
+
+      // Assert
+      expect(result.data[0]).toHaveProperty(
+        'companyId',
+        mockCompany.company_id
+      );
+      expect(result.metadata.totalItems).toBe(1);
     });
+  });
 
-    // --- Tests pour getAllCompanies ---
-    describe('getAllCompanies', () => {
-        it('Doit retourner toutes les compagnies si appelé par un admin', async () => {
-            // Arrange
-            companyRepository.findAll.mockResolvedValue([{ name: 'Test Co' }]);
+  describe('getCompanyById', () => {
+    it('doit retourner un DTO si la compagnie est trouvée', async () => {
+      // Arrange
+      companyRepository.findById.mockResolvedValue(mockCompany);
 
-            // Act
-            await companyService.getAllCompanies(mockAdminUser);
+      // Act
+      const result = await companyService.getCompanyById(
+        mockCompany.company_id
+      );
 
-            // Assert
-            expect(companyRepository.findAll).toHaveBeenCalled();
-        });
-
-        it('Doit lever une erreur 403 si appelé par un technicien', async () => {
-            // Arrange
-            const action = async () => await companyService.getAllCompanies(mockTechnicianUser);
-
-            // Act & Assert
-            await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
-        });
+      // Assert
+      expect(result).toHaveProperty('companyId', mockCompany.company_id);
     });
-
-    // --- Tests pour createCompany ---
-    describe('createCompany', () => {
-        const companyData = { name: 'New Co', email: 'new@co.com' };
-
-        it('Doit créer une compagnie si appelé par un admin et que l\'email est unique', async () => {
-            // Arrange
-            companyRepository.findByEmail.mockResolvedValue(null);
-            companyRepository.create.mockResolvedValue(companyData);
-
-            // Act
-            await companyService.createCompany(companyData, mockAdminUser);
-
-            // Assert
-            expect(companyRepository.create).toHaveBeenCalledWith(companyData);
-        });
-
-        it('Doit lever une erreur 409 si l\'email de la compagnie existe déjà', async () => {
-            // Arrange
-            companyRepository.findByEmail.mockResolvedValue({ email: 'new@co.com' });
-            const action = async () => await companyService.createCompany(companyData, mockAdminUser);
-
-            // Act & Assert
-            await expect(action).rejects.toThrow('Une entreprise avec cet email existe déjà.');
-        });
-        
-        it('Doit lever une erreur 403 si appelé par un technicien', async () => {
-                // Arrange
-                const action = async () => await companyService.createCompany(companyData, mockTechnicianUser);
-
-                // Act & Assert
-                await expect(action).rejects.toThrow('Accès refusé. Droits administrateur requis.');
-        });
-    });
+  });
 });

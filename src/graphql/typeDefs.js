@@ -1,43 +1,64 @@
 export const typeDefs = `#graphql
-    # ... autres types (User, Company, AuthPayload, etc.) ...
+    # --- TYPES DE BASE ---
 
-    # Le type User, basé sur votre UserDto
     type User {
         userId: ID!
         email: String!
         firstName: String
         lastName: String
         role: String
-        isActive: Boolean
-        company: Company # Relation vers la compagnie
+        company: Company
     }
 
     type Company {
         companyId: ID!
         name: String!
-        address: String
         email: String!
-        phoneNumber: String
+    }
+
+    type Offer {
+        offerId: ID!
+        name: String!
+        description: String
+        price: Float!
+        durationMonths: Int!
+    }
+
+    type Order {
+        orderId: ID!
+        orderNumber: String!
+        amount: Float!
+        status: String!
+        createdAt: String!
+        # Relations
+        offer: Offer
+        company: Company
     }
     
+    type License {
+        licenseId: ID!
+        status: String!
+        expiresAt: String!
+        qrCodePayload: String!
+        # Relations
+        order: Order
+    }
+
+    # --- TYPES SPÉCIFIQUES AUX OPÉRATIONS ---
+
+    # "token" a été renommé "accessToken" pour plus de précision.
     type AuthPayload {
-        token: String!
+        accessToken: String!
         user: User!
     }
     
-    input CreateUserInput {
-        company_id: ID!
-        email: String!
-        password: String!
-        first_name: String!
-        last_name: String!
-        role: String!
+    # Type de retour pour l'initiation du paiement
+    type CheckoutSessionPayload {
+        sessionId: String!
+        url: String!
     }
 
-    # --- DÉBUT DES MODIFICATIONS POUR LA PAGINATION ---
-
-    # Un type pour les métadonnées de pagination, correspondant à ce que
-    # votre userService renvoie.
+    # Un type pour les métadonnées de pagination
     type PaginationMeta {
         totalItems: Int!
         totalPages: Int!
@@ -45,26 +66,43 @@ export const typeDefs = `#graphql
         pageSize: Int!
     }
 
-    # Un type qui combine les données (le tableau d'utilisateurs) et les métadonnées.
+    # Un type qui combine les données et les métadonnées
     type PaginatedUsers {
         data: [User]!
         meta: PaginationMeta!
     }
 
-    # --- FIN DES MODIFICATIONS POUR LA PAGINATION ---
+    # --- QUERIES (Lecture) ---
 
     type Query {
-        user(id: ID!): User
-        company(id: ID!): Company
-        me: User
+        # Récupère les offres commerciales (accessible aux admins)
+        offers: [Offer!]
+
+        # Récupère une commande par son ID (accessible à l'admin de la compagnie propriétaire)
+        order(id: ID!): Order
         
-        # La requête 'users' renvoie maintenant le type paginé complet.
+        # Récupère la licence active de la compagnie de l'admin connecté
+        myActiveLicense: License
+        
+        # Récupère les informations de l'utilisateur connecté
+        me: User
+
+        # Récupère la liste paginée des utilisateurs
         users(page: Int, limit: Int): PaginatedUsers
     }
 
+    # --- MUTATIONS (Écriture) ---
+
     type Mutation {
+        # --- Authentification ---
         loginCompanyAdmin(email: String!, password: String!): AuthPayload!
         loginTechnician(email: String!, password: String!): AuthPayload!
-        createUser(input: CreateUserInput!): User!
+
+        # --- Flux d'achat ---
+        # Étape 1: Un admin crée une commande à partir d'une offre
+        createOrder(offerId: ID!): Order!
+        
+        # Étape 2: Un admin initie le paiement pour une commande en attente
+        createCheckoutSession(orderId: ID!): CheckoutSessionPayload!
     }
 `;

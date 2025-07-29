@@ -1,117 +1,159 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { NotFoundException } from '../../src/exceptions/ApiException.js';
+import { UserDto } from '../../src/dtos/userDto.js';
 
 /**
- * @file Tests unitaires pour UserController
+ * @file Tests unitaires pour UserController.
  * @description Cette suite teste l'unité UserController en isolant la couche de service.
  * Elle vérifie que le contrôleur appelle correctement le service et formate
- * les réponses HTTP comme attendu.
+ * les réponses HTTP comme attendu pour toutes les opérations CRUD.
  */
 
-// 1. Simulation de la couche de service pour isoler le contrôleur
+// 1. Mocker le service pour isoler le contrôleur
 jest.unstable_mockModule('../../src/services/userService.js', () => ({
-    default: {
-        getAllUsers: jest.fn(),
-        getUserById: jest.fn(),
-        createUser: jest.fn(),
-        updateUser: jest.fn(),
-        deleteUser: jest.fn(),
-    },
+  default: {
+    getAllUsers: jest.fn(),
+    getUserById: jest.fn(),
+    createUser: jest.fn(),
+    updateUser: jest.fn(),
+    deleteUser: jest.fn(),
+  },
 }));
 
-// 2. Importation des modules après la simulation
-const { default: userService } = await import('../../src/services/userService.js');
-const { default: userController } = await import('../../src/controllers/userController.js');
-const { UserDto } = await import('../../src/dtos/userDto.js');
+// 2. Importer les modules après le mock
+const { default: userService } = await import(
+  '../../src/services/userService.js'
+);
+const { default: userController } = await import(
+  '../../src/controllers/userController.js'
+);
 
-// 3. Suite de tests pour UserController
 describe('UserController', () => {
-    let mockReq, mockRes, mockNext;
+  let mockReq, mockRes, mockNext;
+  beforeEach(() => {
+    mockReq = {
+      params: {},
+      body: {},
+      user: { userId: 'admin-id', role: 'admin' },
+      pagination: { page: 1, limit: 15 },
+    };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      send: jest.fn(),
+    };
+    mockNext = jest.fn();
+    jest.clearAllMocks();
+  });
 
-    // Avant chaque test, réinitialisation des objets simulés de la requête
-    beforeEach(() => {
-        mockReq = {
-            params: {},
-            query: {},
-            body: {},
-            user: { userId: 'admin-id', role: 'admin' }, // Simule un utilisateur admin authentifié
-        };
-        mockRes = {
-            status: jest.fn().mockReturnThis(), // Permet d'enchaîner .status().json()
-            json: jest.fn(),
-            send: jest.fn(),
-        };
-        mockNext = jest.fn(); // Simule la fonction next() pour le gestionnaire d'erreurs
-        jest.clearAllMocks();
+  describe('getAllUsers', () => {
+    it('doit appeler le service et retourner une liste paginée', async () => {
+      const serviceResult = { data: [{ email: 'test@test.com' }], meta: {} };
+      userService.getAllUsers.mockResolvedValue(serviceResult);
+
+      await userController.getAllUsers(mockReq, mockRes, mockNext);
+
+      expect(userService.getAllUsers).toHaveBeenCalledWith(1, 15);
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith(serviceResult);
+    });
+  });
+
+  describe('getUserById', () => {
+    it("doit retourner un DTO si l'utilisateur est trouvé", async () => {
+      const fakeUser = { user_id: 'uuid-123', email: 'test@test.com' };
+      mockReq.params.id = 'uuid-123';
+      userService.getUserById.mockResolvedValue(fakeUser);
+
+      await userController.getUserById(mockReq, mockRes, mockNext);
+
+      expect(userService.getUserById).toHaveBeenCalledWith(
+        'uuid-123',
+        mockReq.user
+      );
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith(new UserDto(fakeUser));
     });
 
-    it('getAllUsers doit appeler le service et retourner une liste paginée de DTOs', async () => {
-        // Préparation
-        const fakeUsers = { data: [{ user_id: 1, email: 'test@test.com' }], meta: {} };
-        userService.getAllUsers.mockResolvedValue(fakeUsers);
+    it('doit appeler next(error) si le service lève une NotFoundException', async () => {
+      const notFoundError = new NotFoundException('Utilisateur non trouvé.');
+      mockReq.params.id = 'uuid-inconnu';
+      userService.getUserById.mockRejectedValue(notFoundError);
 
-        // Action
-        await userController.getAllUsers(mockReq, mockRes, mockNext);
+      await userController.getUserById(mockReq, mockRes, mockNext);
 
-        // Assertion
-        expect(userService.getAllUsers).toHaveBeenCalledWith(1, 10, mockReq.user);
-        expect(mockRes.status).toHaveBeenCalledWith(200);
-        expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
-            data: expect.any(Array),
-        }));
+      expect(mockNext).toHaveBeenCalledWith(notFoundError);
+    });
+  });
+
+  // Tests pour createUser
+  describe('createUser', () => {
+    it('doit retourner 201 et le nouveau DTO utilisateur', async () => {
+      const fakeUser = { user_id: 'uuid-123', email: 'new@test.com' };
+      mockReq.body = { email: 'new@test.com', password: 'pwd' };
+      userService.createUser.mockResolvedValue(fakeUser);
+      await userController.createUser(mockReq, mockRes, mockNext);
+      expect(userService.createUser).toHaveBeenCalledWith(
+        mockReq.body,
+        mockReq.user
+      );
+      expect(mockRes.status).toHaveBeenCalledWith(201);
+      expect(mockRes.json).toHaveBeenCalledWith(new UserDto(fakeUser));
+    });
+  });
+
+  // Tests pour updateUser
+  describe('updateUser', () => {
+    it('doit retourner 200 et le DTO utilisateur mis à jour', async () => {
+      const userId = 'uuid-123';
+      const updatedData = { first_name: 'John' };
+      const updatedUser = { user_id: userId, first_name: 'John' };
+      mockReq.params.id = userId;
+      mockReq.body = updatedData;
+      userService.updateUser.mockResolvedValue(updatedUser);
+      await userController.updateUser(mockReq, mockRes, mockNext);
+      expect(userService.updateUser).toHaveBeenCalledWith(
+        userId,
+        updatedData,
+        mockReq.user
+      );
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith(new UserDto(updatedUser));
     });
 
-    it('getUserById doit retourner un DTO si l\'utilisateur est trouvé', async () => {
-        // Préparation
-        const fakeUser = { user_id: 'uuid-123', email: 'test@test.com' };
-        mockReq.params.id = 'uuid-123';
-        userService.getUserById.mockResolvedValue(fakeUser);
+    it('doit appeler next(error) si le service lève une NotFoundException', async () => {
+      // Arrange
+      const notFoundError = new NotFoundException('Utilisateur non trouvé.');
+      mockReq.params.id = 'uuid-inconnu';
+      mockReq.body = { first_name: 'Test' };
+      userService.updateUser.mockRejectedValue(notFoundError);
 
-        // Action
-        await userController.getUserById(mockReq, mockRes, mockNext);
+      // Act
+      await userController.updateUser(mockReq, mockRes, mockNext);
 
-        // Assertion
-        expect(userService.getUserById).toHaveBeenCalledWith('uuid-123', mockReq.user);
-        expect(mockRes.status).toHaveBeenCalledWith(200);
-        expect(mockRes.json).toHaveBeenCalledWith(new UserDto(fakeUser));
+      // Assert
+      expect(mockNext).toHaveBeenCalledWith(notFoundError);
     });
+  });
 
-    it('getUserById doit retourner 404 si l\'utilisateur n\'est pas trouvé', async () => {
-        // Préparation
-        mockReq.params.id = 'uuid-inconnu';
-        userService.getUserById.mockResolvedValue(null);
+  // Tests pour deleteUser
+  describe('deleteUser', () => {
+    it('doit retourner 204 si la suppression réussit', async () => {
+      mockReq.params.id = 'uuid-123';
+      userService.deleteUser.mockResolvedValue(undefined);
 
-        // Action
-        await userController.getUserById(mockReq, mockRes, mockNext);
+      await userController.deleteUser(mockReq, mockRes, mockNext);
 
-        // Assertion
-        expect(mockRes.status).toHaveBeenCalledWith(404);
-        expect(mockRes.json).toHaveBeenCalledWith({ message: 'User not found' });
+      expect(mockRes.status).toHaveBeenCalledWith(204);
+      expect(mockRes.send).toHaveBeenCalled();
     });
+  });
 
-    it('createUser doit retourner 201 et le nouveau DTO utilisateur', async () => {
-        // Préparation
-        const fakeUser = { user_id: 'uuid-123', email: 'new@test.com' };
-        mockReq.body = { email: 'new@test.com', password: 'pwd' };
-        userService.createUser.mockResolvedValue(fakeUser);
-        
-        // Action
-        await userController.createUser(mockReq, mockRes, mockNext);
-
-        // Assertion
-        expect(userService.createUser).toHaveBeenCalledWith(mockReq.body, mockReq.user);
-        expect(mockRes.status).toHaveBeenCalledWith(201);
-        expect(mockRes.json).toHaveBeenCalledWith(new UserDto(fakeUser));
-    });
-    
-    it('doit appeler next(error) si le service lève une erreur', async () => {
-        // Préparation
-        const fakeError = new Error("Erreur de service");
-        userService.getAllUsers.mockRejectedValue(fakeError);
-
-        // Action
-        await userController.getAllUsers(mockReq, mockRes, mockNext);
-
-        // Assertion
-        expect(mockNext).toHaveBeenCalledWith(fakeError);
-    });
+  // Test générique pour la gestion d'erreur
+  it('doit appeler next(error) si le service lève une erreur', async () => {
+    const fakeError = new Error('Erreur de service');
+    userService.getAllUsers.mockRejectedValue(fakeError);
+    await userController.getAllUsers(mockReq, mockRes, mockNext);
+    expect(mockNext).toHaveBeenCalledWith(fakeError);
+  });
 });

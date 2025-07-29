@@ -1,17 +1,46 @@
+// src/routes/userRoutes.js
+
 import { Router } from 'express';
 import userController from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { validateUserCreation, validateUserId } from '../validators/userValidator.js';
+import { validateUserCreation } from '../validators/userValidator.js';
+import { authorize } from '../middleware/authorizationMiddleware.js';
+import { validateUuidParam } from '../validators/commonValidator.js';
+import { parsePagination } from '../middleware/paginationMiddleware.js';
 
+/**
+ * @file Définit les routes pour la gestion des utilisateurs (CRUD).
+ */
 const router = Router();
 
-// Routes générales
 router.post('/users', protect, validateUserCreation, userController.createUser);
-router.get('/users', protect, userController.getAllUsers);
+router.get(
+  '/users',
+  protect,
+  authorize('admin'),
+  parsePagination(15),
+  userController.getAllUsers
+);
 
-// Routes spécifiques à un ID, avec validation du paramètre UUID
-router.get('/users/:id', protect, validateUserId, userController.getUserById);
-router.put('/users/:id', protect, validateUserId, userController.updateUser);
-router.delete('/users/:id', protect, validateUserId, userController.deleteUser);
+// Utilisation du nouveau validateur
+router.get(
+  '/users/:id',
+  protect,
+  validateUuidParam('id'),
+  userController.getUserById
+);
+router.put(
+  '/users/:id',
+  protect,
+  validateUuidParam('id'),
+  userController.updateUser
+);
+router.delete(
+  '/users/:id',
+  protect,
+  authorize('admin'),
+  validateUuidParam('id'),
+  userController.deleteUser
+);
 
 export default router;

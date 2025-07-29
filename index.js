@@ -1,143 +1,250 @@
+/**
+ * @file Point d'entrée principal de l'application backend Geodiag.
+ * @description Ce fichier initialise un serveur hybride qui expose à la fois
+ * une API REST traditionnelle et une API GraphQL via Apollo Server. Il gère
+ * la configuration, les middlewares, la sécurité et le démarrage du serveur.
+ * L'architecture est conçue pour être robuste, sécurisée et observable.
+ */
+
+// ========================================================================
+// ==                      IMPORTS DE BASE ET CONFIGURATION              ==
+// ========================================================================
+import 'dotenv/config';
 import express from 'express';
+import helmet from 'helmet';
 import http from 'http';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
+import { GraphQLError } from 'graphql';
+import logger from './src/config/logger.js';
+import cookieParser from 'cookie-parser';
 
-// Logique métier et configuration de l'application
-import { checkDatabaseConnection } from './src/db/checkConnection.js';
+// ========================================================================
+// ==                      MODULES DE SÉCURITÉ GRAPHQL                   ==
+// ========================================================================
+import depthLimit from 'graphql-depth-limit';
+import {
+  createComplexityRule,
+  simpleEstimator,
+} from 'graphql-query-complexity';
+import { createDataLoaders } from './src/graphql/dataloaders.js';
+
+// ========================================================================
+// ==                      MODULES APPLICATIFS                           ==
+// ========================================================================
+import { pool } from './src/db/index.js';
+import { checkDatabaseConnection } from './src/db/connection.js';
 import { typeDefs } from './src/graphql/typeDefs.js';
 import { resolvers } from './src/graphql/resolvers.js';
-
-// Middlewares
 import { errorHandler } from './src/middleware/errorHandler.js';
+import { requestLogger } from './src/middleware/loggingMiddleware.js';
 
-// Routes REST
-import userRoutes from './src/routes/userRoutes.js';
-import companyRoutes from './src/routes/companyRoutes.js';
-import vehicleRoutes from './src/routes/vehicleRoutes.js';
-import registrationRoutes from './src/routes/registrationRoutes.js';
+// Importation de toutes les routes REST de l'application
 import authRoutes from './src/routes/authRoutes.js';
-
-// ========================================================================
-// ==                    DÉMARRAGE DU SERVEUR                            ==
-// ========================================================================
+import companyRoutes from './src/routes/companyRoutes.js';
+import offerRoutes from './src/routes/offerRoutes.js';
+import orderRoutes from './src/routes/orderRoutes.js';
+import paymentRoutes from './src/routes/paymentRoutes.js';
+import webhookRoutes from './src/routes/paymentWebhookRoutes.js';
+import registrationRoutes from './src/routes/registrationRoutes.js';
+import userRoutes from './src/routes/userRoutes.js';
+import vehicleRoutes from './src/routes/vehicleRoutes.js';
 
 /**
- * Fonction principale qui initialise et démarre le serveur.
- * Elle est asynchrone pour gérer les démarrages de services (DB, Apollo).
+ * @async
+ * @function startServer
+ * @description Fonction principale asynchrone pour initialiser, configurer et démarrer le serveur.
+ * Elle suit une approche "fail-fast" en vérifiant les dépendances critiques (comme la base de données)
+ * avant de tenter de démarrer le serveur.
  */
 async function startServer() {
   try {
-
-    // --------------------------------------------------------------------
-    // -- ÉTAPE 1 : VÉRIFICATION DES DÉPENDANCES (APPROCHE FAIL-FAST)    --
-    // --------------------------------------------------------------------
-    // Vérifie la connexion à la base de données AVANT de démarrer
-    // le serveur web. Si cela échoue, l'application s'arrête immédiatement.
+    // --- ÉTAPE 1 : VÉRIFICATION DES DÉPENDANCES (APPROCHE FAIL-FAST) ---
+    // Le serveur ne démarre que si la connexion à la base de données est établie.
     await checkDatabaseConnection();
 
-    // --------------------------------------------------------------------
-    // -- ÉTAPE 2 : INITIALISATION DES SERVEURS (EXPRESS & APOLLO)       --
-    // --------------------------------------------------------------------
+    // --- ÉTAPE 2 : INITIALISATION DES SERVEURS (EXPRESS & APOLLO) ---
     const app = express();
     const httpServer = http.createServer(app);
 
+    /**
+     * @description Règle pour limiter la complexité des requêtes GraphQL.
+     * Prévient les abus en calculant un "coût" pour chaque requête et en la rejetant si elle dépasse un seuil.
+     * @see https://github.com/slicknode/graphql-query-complexity
+     */
+    const complexityRule = createComplexityRule({
+      maximumComplexity: 1000, // Seuil maximal de complexité autorisé.
+      variables: {}, // Doit être initialisé. Les variables de la requête seront injectées ici.
+      estimators: [
+        // Attribue une complexité de 1 à chaque champ par défaut.
+        simpleEstimator({ defaultComplexity: 1 }),
+      ],
+      createError: (max, actual) => {
+        return new GraphQLError(
+          `Query is too complex: ${actual}. Maximum allowed complexity: ${max}`
+        );
+      },
+      onComplete: (complexity) => {
+        console.log(`Query Complexity: ${complexity}`);
+      },
+    });
+
+    /**
+     * @description Instance du serveur Apollo.
+     * Intègre les définitions de types, les résolveurs et les règles de validation pour la sécurité.
+     */
     const apolloServer = new ApolloServer({
       typeDefs,
       resolvers,
+      /**
+       * @description Règles de validation appliquées à chaque requête GraphQL entrante.
+       * C'est une couche de défense essentielle contre les requêtes malveillantes.
+       */
+      validationRules: [
+        depthLimit(7), // Limite la profondeur des requêtes pour éviter les abus.
+        complexityRule, // Applique la règle de limitation de complexité.
+      ],
     });
 
-    // Le démarrage du serveur Apollo est asynchrone et doit être attendu.
     await apolloServer.start();
 
-    // --------------------------------------------------------------------
-    // -- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS                --
-    // --------------------------------------------------------------------
-    // L'ordre des middlewares est important.
+    // --- ÉTAPE 3 : CONFIGURATION DES MIDDLEWARES EXPRESS ---
 
-    // Active CORS pour autoriser les requêtes cross-domaine.
-    app.use(cors());
+    // Il ajoute des en-têtes de sécurité à TOUTES les réponses.
+    app.use(helmet());
 
-    // Parse les corps de requête au format JSON.
-    app.use(express.json());
+    // Middleware pour parser les cookies, nécessaire pour la gestion des tokens JWT.
+    app.use(cookieParser());
 
-    // --------------------------------------------------------------------
-    // -- ÉTAPE 4 : DÉFINITION DES ROUTES                                --
-    // --------------------------------------------------------------------
+    // Appliquer le logger contextuel en premier
+    app.use(requestLogger);
 
-    // Route de "Health Check" pour vérifier que le service est en ligne.
+    /**
+     * @description Configuration de la politique CORS (Cross-Origin Resource Sharing).
+     * @see https://expressjs.com/en/resources/middleware/cors.html
+     */
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',')
+      : [];
+    const corsOptions = {
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true,
+    };
+
+    app.use(cors(corsOptions));
+
+    // --- ÉTAPE 4 : DÉFINITION DES ROUTES ---
+    /**
+     * @description Route de "Health Check" pour la supervision du service.
+     * Permet aux systèmes de monitoring (ex: Kubernetes, AWS) de vérifier si le service est en ligne.
+     */
     app.get('/', (req, res) => {
       res.status(200).send('API Geodiag is running with REST and GraphQL. 🎉');
     });
 
-    // Enregistrement de toutes les routes REST sous le préfixe /api
-    app.use('/api', userRoutes);
-    app.use('/api', companyRoutes);
-    app.use('/api', vehicleRoutes);
-    app.use('/api', registrationRoutes);
+    // 1. La route pour les webhooks Stripe est enregistrée AVANT le parser JSON global.
+    // C'est crucial car le middleware de vérification de signature de Stripe a besoin du corps brut (raw body) de la requête.
+    app.use('/api', webhookRoutes);
+
+    // 2. Activation du parser JSON pour toutes les autres routes.
+    app.use(express.json());
+
+    // 3. Enregistrement des routes de l'API REST.
     app.use('/api', authRoutes);
+    app.use('/api', companyRoutes);
+    app.use('/api', offerRoutes);
+    app.use('/api', orderRoutes);
+    app.use('/api', paymentRoutes);
+    app.use('/api', registrationRoutes);
+    app.use('/api', userRoutes);
+    app.use('/api', vehicleRoutes);
 
-    // Enregistrement du point d'entrée GraphQL sur /graphql
-    app.use('/graphql', expressMiddleware(apolloServer, {
-      context: async ({ req }) => {
+    /**
+     * @description Enregistrement du middleware GraphQL.
+     * Toutes les requêtes vers '/graphql' seront gérées par Apollo Server.
+     */
+    app.use(
+      '/graphql',
+      expressMiddleware(apolloServer, {
+        /**
+         * @description Fonction de contexte pour les requêtes GraphQL.
+         * Extrait le token JWT, le valide, et attache les informations de l'utilisateur
+         * au contexte de la requête. Ce contexte est ensuite disponible dans tous les résolveurs.
+         * @param {object} context - L'objet de contexte de la requête, contenant `req`.
+         * @returns {Promise<object>} Le contexte enrichi avec les informations de l'utilisateur.
+         */
+        context: async ({ req }) => {
+          const authHeader = req.headers?.authorization ?? '';
+          if (!authHeader.startsWith('Bearer ')) {
+            return { dataloaders: createDataLoaders() };
+          }
 
-        // 1. Extraire le token des en-têtes
-        const authHeader = req.headers.authorization || '';
-        if (!authHeader.startsWith('Bearer ')) {
+          const token = authHeader.substring(7);
+          try {
+            const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+            if (!decoded.userId) return { dataloaders: createDataLoaders() };
 
-            // Si pas de token, renvoie un contexte sans utilisateur
-            return {};
-        }
+            // Récupère les données utilisateur à jour pour chaque requête,
+            // garantissant que les permissions sont toujours fraîches.
+            const { rows } = await pool.query(
+              'SELECT user_id, company_id, email, role, is_active FROM users WHERE user_id = $1',
+              [decoded.userId]
+            );
 
-        const token = authHeader.substring(7);
+            const currentUser = rows[0];
 
-        try {
+            if (!currentUser?.is_active) {
+              return { dataloaders: createDataLoaders() };
+            }
 
-            // 2. Vérifier le token et extraire le payload de l'utilisateur
-            const userPayload = jwt.verify(token, process.env.JWT_SECRET);
+            // Retourne l'utilisateur ET les nouvelles instances de dataloader
+            return {
+              user: currentUser,
+              dataloaders: createDataLoaders(),
+            };
+          } catch (error) {
+            // Gère les tokens invalides ou expirés en retournant un contexte vide.
+            logger.error(
+              { err: error },
+              `[GraphQL Context] Erreur de validation du token : ${error.message}`
+            );
+            return { dataloaders: createDataLoaders() };
+          }
+        },
+      })
+    );
 
-            // 3. Renvoyer le payload dans le contexte pour qu'il soit
-            // accessible à tous les résolveurs via `context.user`
-            return { user: userPayload };
-        } catch (error) {
-
-            // En cas de token invalide ou expiré, on renvoie un contexte sans utilisateur
-            console.error('Erreur de validation du token GraphQL:', error.message);
-            return {};
-        }
-      },
-    }));
-
-    // --------------------------------------------------------------------
-    // -- ÉTAPE 5 : GESTION DES ERREURS                                  --
-    // --------------------------------------------------------------------
-    // Le gestionnaire d'erreurs doit TOUJOURS être le dernier middleware
-    // enregistré pour attraper les erreurs de toutes les routes précédentes.
+    // --- ÉTAPE 5 : GESTION DES ERREURS ---
+    // Ce middleware doit être le dernier pour attraper toutes les erreurs non gérées
+    // par les routes précédentes et les formater de manière cohérente.
     app.use(errorHandler);
 
-    // --------------------------------------------------------------------
-    // -- ÉTAPE 6 : LANCEMENT DU SERVEUR                                 --
-    // --------------------------------------------------------------------
-    const PORT = process.env.PORT || 4000;
-    await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
+    // --- ÉTAPE 6 : LANCEMENT DU SERVEUR ---
+    const PORT = process.env.PORT || 3000;
 
-    console.log(`🚀 Serveur prêt sur http://localhost:${PORT}`);
-    console.log(`✨ Endpoint GraphQL prêt sur http://localhost:${PORT}/graphql`);
+    await new Promise((resolve) =>
+      httpServer.listen({ port: PORT, host: '0.0.0.0' }, resolve)
+    );
 
+    logger.info(`🚀 Serveur prêt sur http://0.0.0.0:${PORT}`);
+    logger.info(`✨ Endpoint GraphQL prêt sur http://0.0.0.0:${PORT}/graphql`);
   } catch (error) {
-
-    // Si une erreur critique se produit au démarrage (ex: échec de la connexion DB),
-    // affichage et on arrête l'application.
-    console.error("🔥 Échec critique du démarrage du serveur. L'application va s'arrêter.");
-    console.error(error);
-    
-    // process.exit(1) signale que le processus s'est terminé avec une erreur.
-    // C'est ce qui fera échouer le déploiement sur Render ou le conteneur Docker.
+    // Capture les erreurs critiques au démarrage (ex: échec de la connexion à la BDD).
+    logger.fatal(
+      { err: error },
+      "🔥 Échec critique du démarrage du serveur. L'application va s'arrêter."
+    );
     process.exit(1);
   }
 }
 
-// Lancement de l'application.
+// Lance l'application.
 startServer();

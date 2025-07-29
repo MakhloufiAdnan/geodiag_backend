@@ -1,19 +1,40 @@
 import { Router } from 'express';
 import vehicleController from '../controllers/vehicleController.js';
 import { protect } from '../middleware/authMiddleware.js';
-
-// Importer les middlewares de validation pré-configurés.
+import { authorize } from '../middleware/authorizationMiddleware.js';
+import { parsePagination } from '../middleware/paginationMiddleware.js';
 import {
-    validateVehicleCreation,
-    validateVehicleRegistration
+  validateVehicleCreation,
+  validateVehicleRegistration,
 } from '../validators/vehicleValidator.js';
 
+/**
+ * @file Définit les routes pour la gestion des véhicules.
+ */
 const router = Router();
 
-// Route pour créer un véhicule avec validation du corps de la requête.
-router.post('/vehicles', protect, validateVehicleCreation, vehicleController.createVehicle);
+router.get(
+  '/vehicles',
+  protect,
+  authorize('admin', 'technician'),
+  parsePagination(20),
+  vehicleController.getAllVehicles
+);
 
-// Route pour récupérer un véhicule avec validation du paramètre d'URL.
-router.get('/vehicles/by-registration/:registration', protect, validateVehicleRegistration, vehicleController.getVehicleByRegistration);
+router.post(
+  '/vehicles',
+  protect,
+  authorize('admin', 'technician'),
+  validateVehicleCreation,
+  vehicleController.createVehicle
+);
+
+router.get(
+  '/vehicles/by-registration/:registration',
+  protect,
+  authorize('admin', 'technician'),
+  validateVehicleRegistration,
+  vehicleController.getVehicleByRegistration
+);
 
 export default router;

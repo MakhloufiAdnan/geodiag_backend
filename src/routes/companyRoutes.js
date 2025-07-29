@@ -1,22 +1,41 @@
 import { Router } from 'express';
 import companyController from '../controllers/companyController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { authorize } from '../middleware/authorizationMiddleware.js';
+import { parsePagination } from '../middleware/paginationMiddleware.js';
+import { validateCompanyCreation } from '../validators/companyValidator.js';
+import { validateUuidParam } from '../validators/commonValidator.js';
 
-// Importer les middlewares de validation pré-configurés.
-import {
-    validateCompanyCreation,
-    validateCompanyId 
-} from '../validators/companyValidator.js';
-
+/**
+ * @file Définit les routes pour la gestion des compagnies.
+ * @description Toutes les routes sont protégées et nécessitent une authentification.
+ * La logique d'autorisation (rôle admin) est gérée dans le service.
+ */
 const router = Router();
 
-// Route de création avec validation du corps de la requête.
-router.post('/companies', protect, validateCompanyCreation, companyController.createCompany);
+// Note : La création de compagnie se fait via /register. Cette route serait
+// utilisée si un super-admin pouvait créer des compagnies manuellement.
+router.post(
+  '/companies',
+  protect,
+  validateCompanyCreation,
+  companyController.createCompany
+);
 
-// Route générale
-router.get('/companies', protect, companyController.getAllCompanies);
+router.get(
+  '/companies',
+  protect,
+  authorize('admin'),
+  parsePagination(10),
+  companyController.getAllCompanies
+);
 
-// Route spécifique avec validation de l'ID dans les paramètres de l'URL.
-router.get('/companies/:id', protect, validateCompanyId, companyController.getCompanyById);
+router.get(
+  '/companies/:id',
+  protect,
+  authorize('admin'),
+  validateUuidParam('id'),
+  companyController.getCompanyById
+);
 
 export default router;

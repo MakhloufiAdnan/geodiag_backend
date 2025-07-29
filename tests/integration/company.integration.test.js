@@ -1,78 +1,81 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { pool } from '../../src/db/index.js';
+import { createTestCompany, createTestUser } from '../helpers/testFactories.js';
+import { setupIntegrationTest } from '../helpers/integrationTestSetup.js';
+import redisClient from '../../src/config/redisClient.js';
 
 /**
- * @file Tests unitaires pour CompanyController
+ * @file Tests d'intégration pour les routes /api/companies.
  */
+describe('GET /api/companies', () => {
+  const getAgent = setupIntegrationTest();
+  let agent;
+  let adminToken, technicianToken, testCompanyId;
 
-// 1. Mocker le service
-jest.unstable_mockModule('../../src/services/companyService.js', () => ({
-    default: {
-        getAllCompanies: jest.fn(),
-        getCompanyById: jest.fn(),
-        createCompany: jest.fn(),
-    },
-}));
+  beforeEach(async () => {
+    agent = getAgent();
+    await Promise.all([
+      pool.query('TRUNCATE TABLE companies, users RESTART IDENTITY CASCADE'),
+      redisClient.flushall(),
+    ]);
 
-// 2. Imports
-const { default: companyService } = await import('../../src/services/companyService.js');
-const { default: companyController } = await import('../../src/controllers/companyController.js');
+    testCompanyId = await createTestCompany(
+      'Company Integ Test',
+      'co-integ@test.com'
+    );
+    const admin = await createTestUser(
+      testCompanyId,
+      'admin',
+      'admin.co@test.com'
+    );
+    adminToken = admin.token;
+    const tech = await createTestUser(
+      testCompanyId,
+      'technician',
+      'tech.co@test.com'
+    );
+    technicianToken = tech.token;
+  });
 
-describe('CompanyController', () => {
-    let mockReq, mockRes, mockNext;
+  afterAll(async () => {
+    await pool.end();
+    await redisClient.quit();
+  });
 
-    beforeEach(() => {
-        mockReq = {
-            params: {},
-            body: {},
-            user: { userId: 'admin-uuid', role: 'admin' }, // Simuler un admin connecté
-        };
-        mockRes = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn(),
-        };
-        mockNext = jest.fn();
-        jest.clearAllMocks();
-    });
+  it('retourne la liste des compagnies pour un admin (200 OK)', async () => {
+    // Arrange
+    // Les données sont prêtes grâce à beforeEach.
 
-    it('getAllCompanies doit appeler le service et renvoyer 200', async () => {
-        // Arrange
-        const fakeCompanies = [{ name: 'Test Co' }];
-        companyService.getAllCompanies.mockResolvedValue(fakeCompanies);
+    // Act
+    const response = await agent
+      .get('/api/companies')
+      .set('Authorization', `Bearer ${adminToken}`);
 
-        // Act
-        await companyController.getAllCompanies(mockReq, mockRes, mockNext);
+    // Assert
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toHaveProperty('data');
+    // CORRECTION : Vérifier la présence de "metadata" au lieu de "meta".
+    expect(response.body).toHaveProperty('metadata');
+  });
 
-        // Assert
-        expect(companyService.getAllCompanies).toHaveBeenCalledWith(mockReq.user);
-        expect(mockRes.status).toHaveBeenCalledWith(200);
-        expect(mockRes.json).toHaveBeenCalledWith(fakeCompanies);
-    });
-    
-    it('createCompany doit appeler le service et renvoyer 201', async () => {
-        // Arrange
-        const newCompanyData = { name: 'New Co', email: 'new@co.com' };
-        const createdCompany = { companyId: 'uuid-123', ...newCompanyData };
-        mockReq.body = newCompanyData;
-        companyService.createCompany.mockResolvedValue(createdCompany);
+  it("refuse l'accès à la liste des compagnies pour un technicien (403 Forbidden)", async () => {
+    // Act
+    const response = await agent
+      .get('/api/companies')
+      .set('Authorization', `Bearer ${technicianToken}`);
 
-        // Act
-        await companyController.createCompany(mockReq, mockRes, mockNext);
+    // Assert
+    expect(response.statusCode).toBe(403);
+  });
 
-        // Assert
-        expect(companyService.createCompany).toHaveBeenCalledWith(newCompanyData, mockReq.user);
-        expect(mockRes.status).toHaveBeenCalledWith(201);
-        expect(mockRes.json).toHaveBeenCalled();
-    });
+  it("retourne les détails d'une compagnie par son ID pour un admin (200 OK)", async () => {
+    // Act
+    const response = await agent
+      .get(`/api/companies/${testCompanyId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
 
-    it('doit appeler next(error) si un service lève une erreur', async () => {
-        // Arrange
-        const fakeError = new Error("Erreur de service");
-        companyService.getAllCompanies.mockRejectedValue(fakeError);
-
-        // Act
-        await companyController.getAllCompanies(mockReq, mockRes, mockNext);
-
-        // Assert
-        expect(mockNext).toHaveBeenCalledWith(fakeError);
-    });
+    // Assert
+    expect(response.statusCode).toBe(200);
+    expect(response.body.companyId).toBe(testCompanyId);
+  });
 });
