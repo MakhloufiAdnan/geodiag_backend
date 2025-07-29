@@ -14,7 +14,7 @@ jobs:
   # ===============================================
   test:
     name: Test Application
-    environment: Test 
+    environment: Test
     runs-on: ubuntu-latest
 
     services:
@@ -25,16 +25,26 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
           POSTGRES_DB: geodiag_test
         ports:
-          - 5432:5432 
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379 
+        options: >-
+          --health-cmd "redis-cli ping" # Commande pour vérifier la santé de Redis
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -46,7 +56,7 @@ jobs:
         run: npm ci
 
       - name: Lint code
-        run: npm run lint 
+        run: npm run lint
 
       - name: Scan for vulnerabilities
         run: npm audit --audit-level=high
@@ -63,13 +73,22 @@ jobs:
           PGUSER: geodiag
           PGPASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
 
+      - name: Wait for Redis Service to be Ready 
+        run: |
+          echo "Waiting for Redis to be ready..."
+          until nc -z localhost 6379; do # Vérifie la connectivité au port Redis
+            echo "Redis is unavailable - sleeping"
+            sleep 1
+          done
+          echo "Redis is up and running!"
+
       - name: Run tests
         run: npm test
         env:
           DATABASE_URL: postgresql://geodiag:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/geodiag_test
           JWT_ACCESS_SECRET: ${{ secrets.TEST_JWT_ACCESS_SECRET }}
-          # Si tes tests nécessitent Redis, assure-toi de configurer un service Redis similaire
-          # ou d'utiliser un mock/stub. Ex: REDIS_URL: ${{ secrets.TEST_REDIS_URL }}
+          STRIPE_SECRET_KEY: ${{ secrets.TEST_STRIPE_SECRET_KEY }}
+          REDIS_URL: redis://localhost:6379
 
   ## Deploy to Production
   # ===============================================
@@ -77,14 +96,14 @@ jobs:
   # ===============================================
   deploy:
     name: Deploy to Production
-    needs: test 
+    needs: test
     if: github.event_name == 'push' && github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     environment: Product
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -96,20 +115,16 @@ jobs:
         run: npm ci --omit=dev
 
       - name: Log in to Fly.io Docker Registry
-        # Authentifie Docker avec le registre Fly.io pour pousser l'image
         uses: docker/login-action@v3
         with:
           registry: registry.fly.io
           username: x
-          password: ${{ secrets.FLY_API_TOKEN }} 
+          password: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Build and Push Docker Image
         id: build_push_image
         run: |
-          # Extrait le nom de l'application directement depuis le fichier fly.toml
-          # Assurez-vous que le fichier fly.toml est à la racine du dépôt.
           APP_NAME=$(grep '^app =' fly.toml | cut -d "'" -f 2 | cut -d '"' -f 2)
-          # Utilise le nom du tag Git (ex: v1.0.0) comme tag de l'image Docker pour un versioning clair
           IMAGE_TAG=${{ github.ref_name }}
           
           echo "Building Docker image: registry.fly.io/$APP_NAME:$IMAGE_TAG"
@@ -126,20 +141,17 @@ jobs:
           PGUSER: ${{ secrets.PROD_DB_USER }}
           PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          PGSSLMODE: require 
+          PGSSLMODE: require
 
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy Application to Fly.io
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} 
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          # Extrait le nom de l'application directement depuis le fichier fly.toml
           APP_NAME=$(grep '^app =' fly.toml | cut -d "'" -f 2 | cut -d '"' -f 2)
           IMAGE_TAG=${{ github.ref_name }}
           
           echo "Deploying application $APP_NAME with image registry.fly.io/$APP_NAME:$IMAGE_TAG"
-          # Déploie l'application sur Fly.io en utilisant l'image Docker déjà poussée.
           fly deploy --remote-only --app $APP_NAME --image registry.fly.io/$APP_NAME:$IMAGE_TAG --force-instance-refresh
-          
