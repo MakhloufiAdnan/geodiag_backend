@@ -85,8 +85,8 @@ jobs:
           done
           echo "Redis is up and running!"
 
-          - name: Debug ALL Environment Variables Passed to Node.js
-        run: |
+      - name: Debug ALL Environment Variables Passed to Node.js
+        run:
           echo "--- Environment Variables ---"
           # Filtre pour montrer celles qui sont généralement utilisées par Node.js et votre app
           env | grep -E '^(JWT|STRIPE|PAYMENT|EMAIL|REDIS|FRONTEND|DATABASE_URL|NODE_ENV|PORT|USER|PASS)' || true
@@ -109,7 +109,7 @@ jobs:
           USER: 'test@example.com'
           PASS: 'testpassword'
           FRONTEND_URL: 'http://localhost:3000'
-          
+
       - name: Run Tests
         run: npm test
         env:
