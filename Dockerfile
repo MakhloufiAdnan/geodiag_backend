@@ -20,6 +20,9 @@ WORKDIR /app
 # Création d'un utilisateur et un groupe non-root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
+# S'assurer que le nouvel utilisateur est propriétaire de son répertoire de travail
+RUN chown -R appuser:appgroup /app
+
 # Installer le client openssh AVANT de changer d'utilisateur
 RUN apk add --no-cache openssh-client
 
