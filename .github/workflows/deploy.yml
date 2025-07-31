@@ -156,6 +156,7 @@ jobs:
           PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
           PGSSLMODE: require
+          PGSSLSERVERNAME: postgresql-assistantsinistregeodiag.alwaysdata.net
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
