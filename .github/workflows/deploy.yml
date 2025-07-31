@@ -8,10 +8,15 @@ on:
   pull_request:
     branches: ['main']
 
+# Si un nouveau déploiement est lancé pour le même tag/branche, l'ancien est annulé.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   # ===============================================
-  # ==            TESTER L'APPLICATION           ==
+  # ==           TESTER L'APPLICATION            ==
   # ===============================================
   test:
     name: Run Tests
@@ -103,7 +108,7 @@ jobs:
           FRONTEND_URL: 'http://localhost:5173'
           
   # ===============================================
-  # ==          DÉPLOYER EN PRODUCTION           ==
+  # ==         DÉPLOYER EN PRODUCTION            ==
   # ===============================================
   deploy:
     name: Deploy to Production
@@ -125,6 +130,36 @@ jobs:
       - name: Install Production Dependencies
         run: npm ci --omit=dev
 
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+
+      - name: Apply DB Migrations via SSH Tunnel
+        run: |
+          echo "Setting up SSH tunnel..."
+          # Ajoute l'hôte Alwaysdata aux hôtes connus pour éviter l'invite interactive
+          ssh-keyscan ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts
+          
+          # Ouvre le tunnel en arrière-plan. Le port local 5433 est redirigé vers localhost:5432 sur le serveur distant.
+          ssh -N -L 5433:localhost:5432 ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} &
+          
+          # Laisse le temps au tunnel de s'établir
+          sleep 5
+          echo "Tunnel established. Running migrations..."
+          
+          npm run migrate up
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5433
+          PGUSER: ${{ secrets.PROD_DB_USER }}
+          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+          PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
+          PGSSLMODE: require
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
       - name: Log in to Fly.io Docker Registry
         uses: docker/login-action@v3
         with:
@@ -132,34 +167,22 @@ jobs:
           username: x
           password: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: Build and Push Docker Image
-        id: build_push_image
-        run: |
-          APP_NAME=$(grep '^app =' fly.toml | cut -d "'" -f 2 | cut -d '"' -f 2)
-          IMAGE_TAG=${{ github.ref_name }}
-          echo "Building Docker image: registry.fly.io/$APP_NAME:$IMAGE_TAG"
-          docker build . --file ./Dockerfile --tag registry.fly.io/$APP_NAME:$IMAGE_TAG
-          echo "Pushing Docker image: registry.fly.io/$APP_NAME:$IMAGE_TAG"
-          docker push registry.fly.io/$APP_NAME:$IMAGE_TAG
-
-      - name: Apply DB Migrations to Production Database (Alwaysdata)
-        run: npm run migrate up
-        env:
-          PGHOST: ${{ secrets.PROD_DB_HOST }}
-          PGPORT: ${{ secrets.PROD_DB_PORT }}
-          PGUSER: ${{ secrets.PROD_DB_USER }}
-          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
-          PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          PGSSLMODE: require
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: registry.fly.io/${{ vars.FLY_APP_NAME }}:${{ github.ref_name }}
+          cache-from: type=registry,ref=registry.fly.io/${{ vars.FLY_APP_NAME }}:buildcache
+          cache-to: type=registry,ref=registry.fly.io/${{ vars.FLY_APP_NAME }}:buildcache,mode=max
 
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
-
+        
       - name: Deploy Application to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          APP_NAME=$(grep '^app =' fly.toml | cut -d "'" -f 2 | cut -d '"' -f 2)
           IMAGE_TAG=${{ github.ref_name }}
-          echo "Deploying application $APP_NAME with image registry.fly.io/$APP_NAME:$IMAGE_TAG"
-          fly deploy --remote-only --app $APP_NAME --image registry.fly.io/$APP_NAME:$IMAGE_TAG --force-instance-refresh
+          fly deploy --remote-only --app ${{ vars.FLY_APP_NAME }} --image registry.fly.io/${{ vars.FLY_APP_NAME }}:$IMAGE_TAG --force-instance-refresh
