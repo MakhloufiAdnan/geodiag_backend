@@ -141,8 +141,8 @@ jobs:
           # Ajoute l'hôte Alwaysdata aux hôtes connus pour éviter l'invite interactive
           ssh-keyscan ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts
           
-          # Ouvre le tunnel en arrière-plan. Le port local 5433 est redirigé vers localhost:5432 sur le serveur distant.
-          ssh -N -L 5433:localhost:5432 ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} &
+          # Ouvre le tunnel en arrière-plan. 
+          ssh -N -L 5433:postgresql-assistantsinistregeodiag.alwaysdata.net:5432 ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} &
           
           # Laisse le temps au tunnel de s'établir
           sleep 5
