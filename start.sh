@@ -8,7 +8,7 @@ chmod 600 /app/.ssh/id_ed25519
 echo "Host *\n  StrictHostKeyChecking no" > /app/.ssh/config
 chmod 600 /app/.ssh/config
 
-echo "Starting SSH tunnel in the background..."
+echo "Starting SSH tunnel for PostgreSQL..."
 ssh -N -L 5433:localhost:5432 assistantsinistregeodiag@ssh-assistantsinistregeodiag.alwaysdata.net &
 
 # Récupère l'ID du processus (PID) du tunnel SSH
@@ -23,6 +23,4 @@ echo "Tunnel established with PID $TUNNEL_PID. Waiting for it to be ready..."
 sleep 5
 
 echo "Starting application with 'npm start'..."
-
-# La 'trap' reste actif et se déclenchera à la fin de l'application.
 exec npm start
