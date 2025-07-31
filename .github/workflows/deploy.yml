@@ -182,9 +182,15 @@ jobs:
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
         
-      - name: Deploy Application to Fly.io
+      - name: Deploy Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
+          # Installer flyctl manuellement pour garantir qu'il est disponible
+          curl -L https://fly.io/install.sh | sh
+          export FLYCTL_INSTALL="/home/runner/.fly"
+          export PATH="$FLYCTL_INSTALL/bin:$PATH"
+          
+          # Lancer la commande de déploiement
           IMAGE_TAG=${{ github.ref_name }}
-          fly deploy --remote-only --app ${{ vars.FLY_APP_NAME }} --image registry.fly.io/${{ vars.FLY_APP_NAME }}:$IMAGE_TAG --force-instance-refresh
+          fly deploy --remote-only --app ${{ vars.FLY_APP_NAME }} --image registry.fly.io/${{ vars.FLY_APP_NAME }}:${IMAGE_TAG} --force-instance-refresh
