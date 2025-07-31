@@ -150,6 +150,14 @@ async function startServer() {
       res.status(200).send('API Geodiag is running with REST and GraphQL. 🎉');
     });
 
+    /**
+    * @description Route de "Health Check" pour la supervision par Docker et Fly.io.
+    * Répond simplement 200 OK si le serveur est capable de traiter une requête.
+    */
+    app.get('/healthz', (req, res) => {
+      res.status(200).send('OK');
+    });
+
     // 1. La route pour les webhooks Stripe est enregistrée AVANT le parser JSON global.
     // C'est crucial car le middleware de vérification de signature de Stripe a besoin du corps brut (raw body) de la requête.
     app.use('/api', webhookRoutes);
