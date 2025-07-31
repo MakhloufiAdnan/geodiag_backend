@@ -138,29 +138,14 @@ jobs:
       - name: Apply DB Migrations via SSH Tunnel
         run: |
           echo "Setting up SSH tunnel..."
-          # Ajoute l'hôte Alwaysdata aux hôtes connus pour éviter l'invite interactive
           ssh-keyscan ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts
-          
-          # Ouvre le tunnel en arrière-plan. 
           ssh -N -L 5433:postgresql-assistantsinistregeodiag.alwaysdata.net:5432 ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} &
-          
-          # Laisse le temps au tunnel de s'établir
           sleep 5
           echo "Tunnel established. Running migrations..."
-          
           npm run migrate up
         env:
-          PGHOST: 127.0.0.1
-          PGPORT: 5433
-          PGUSER: ${{ secrets.PROD_DB_USER }}
-          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
-          PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          PGSSLMODE: require
-          PGSSLSERVERNAME: postgresql-assistantsinistregeodiag.alwaysdata.net
+          DATABASE_URL: "postgresql://${{ secrets.PROD_DB_USER }}:${{ secrets.PROD_DB_PASSWORD }}@127.0.0.1:5433/${{ secrets.PROD_DB_DATABASE }}?ssl=true&sslmode=require&servername=postgresql-assistantsinistregeodiag.alwaysdata.net"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        
       - name: Log in to Fly.io Docker Registry
         uses: docker/login-action@v3
         with:
