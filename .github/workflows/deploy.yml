@@ -150,7 +150,7 @@ jobs:
           PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
           PGSSLMODE: require
-          
+
           # Voir pour supprimer cette ligne si le certificat SSL est correctement configuré
           NODE_TLS_REJECT_UNAUTHORIZED: 0
 
@@ -178,4 +178,9 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
+          # Step 1: Install flyctl
+          curl -L https://fly.io/install.sh | sh
+          export FLYCTL_INSTALL="/home/runner/.fly"
+          export PATH="$FLYCTL_INSTALL/bin:$PATH"
+          
           fly deploy --remote-only --app ${{ vars.FLY_APP_NAME }} --image registry.fly.io/${{ vars.FLY_APP_NAME }}:${{ github.ref_name }}
