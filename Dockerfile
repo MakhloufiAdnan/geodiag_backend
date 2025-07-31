@@ -24,7 +24,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 RUN chown -R appuser:appgroup /app
 
 # Installer le client openssh AVANT de changer d'utilisateur
-RUN apk add --no-cache openssh-client
+RUN apk add --no-cache openssh-client curl
 
 # Copie uniquement des dépendances de production depuis l'étape "builder"
 COPY --chown=appuser:appgroup --from=builder /app/node_modules ./node_modules
