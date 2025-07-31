@@ -1,36 +1,37 @@
 import Redis from 'ioredis';
 import logger from './logger.js';
 
-// Détermine l'URL de Redis en fonction de l'environnement
-const redisUrl =
-  process.env.NODE_ENV === 'test'
-    ? 'redis://localhost:6379' // Pour les tests locaux, se connecte à localhost
-    : process.env.REDIS_URL;
+const redisUrl = process.env.NODE_ENV === 'test'
+  ? 'redis://localhost:6379' // Pour les tests locaux
+  : process.env.REDIS_URL;   // Pour la production (Upstash)
 
 // Stratégie de reconnexion (Exponential Backoff)
 const retryStrategy = (times) => {
-  
-  // Attendre de plus en plus longtemps entre chaque tentative, avec un maximum de 2 secondes.
   const delay = Math.min(times * 50, 2000);
   logger.warn(`Tentative de reconnexion à Redis dans ${delay}ms (essai n°${times})`);
   return delay;
 };
 
-const redisClient = new Redis(redisUrl, {
+// Configuration de la connexion
+const redisOptions = {
   retryStrategy,
-  // Ajout d'une option TLS nécessaire pour les connexions rediss://
-  // Ioredis le fait souvent automatiquement, mais l'expliciter est plus robuste.
-  tls: {},
+};
+
+// Active l'option TLS que si l'URL est sécurisée (commence par "rediss://")
+if (redisUrl?.startsWith('rediss://')) { 
+redisOptions.tls = {};
+}
+
+const redisClient = new Redis(redisUrl, redisOptions);
+
+redisClient.on('connect', () => { 
+logger.info('✅Connected to Redis.');
 });
 
-redisClient.on('connect', () => {
-  logger.info('✅ Connecté à Redis.');
-});
-
-redisClient.on('error', (err) => {
-  if (err.code !== 'ECONNRESET') {
-    logger.error({ err }, '❌ Erreur de connexion Redis.');
-  }
+redisClient.on('error', (err) => { 
+if (err.code !== 'ECONNRESET') { 
+logger.error({ err }, '❌ Redis connection error.'); 
+}
 });
 
 export default redisClient;
