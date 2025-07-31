@@ -150,14 +150,7 @@ jobs:
           
           npm run migrate up
         env:
-          PGHOST: 127.0.0.1
-          PGPORT: 5433
-          PGUSER: ${{ secrets.PROD_DB_USER }}
-          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
-          PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          PGSSLMODE: require
-          # Set NODE_TLS_REJECT_UNAUTHORIZED to 0 à revoir pour la sécurité (provisoire)
-          NODE_TLS_REJECT_UNAUTHORIZED: 0
+          DATABASE_URL: "postgresql://${{ secrets.PROD_DB_USER }}:${{ secrets.PROD_DB_PASSWORD }}@127.0.0.1:5433/${{ secrets.PROD_DB_DATABASE }}?ssl=true&sslmode=require&servername=postgresql-assistantsinistregeodiag.alwaysdata.net"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -178,19 +171,9 @@ jobs:
           tags: registry.fly.io/${{ vars.FLY_APP_NAME }}:${{ github.ref_name }}
           cache-from: type=registry,ref=registry.fly.io/${{ vars.FLY_APP_NAME }}:buildcache
           cache-to: type=registry,ref=registry.fly.io/${{ vars.FLY_APP_NAME }}:buildcache,mode=max
-
-      - name: Install Flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
-        
+      
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          # Installer flyctl
-          curl -L https://fly.io/install.sh | sh
-          export FLYCTL_INSTALL="/home/runner/.fly"
-          export PATH="$FLYCTL_INSTALL/bin:$PATH"
-          
-          # Lancer la commande de déploiement (sans l'ancien flag)
-          IMAGE_TAG=${{ github.ref_name }}
-          fly deploy --remote-only --app ${{ vars.FLY_APP_NAME }} --image registry.fly.io/${{ vars.FLY_APP_NAME }}:${IMAGE_TAG}
+          fly deploy --remote-only --app ${{ vars.FLY_APP_NAME }} --image registry.fly.io/${{ vars.FLY_APP_NAME }}:${{ github.ref_name }}
