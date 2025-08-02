@@ -1,19 +1,17 @@
+/**
+ * @file Définit la route publique pour la consultation des offres commerciales.
+ * @description La gestion (CRUD) des offres est assurée par l'API GraphQL.
+ */
 import { Router } from 'express';
 import offerController from '../controllers/offerController.js';
-import { protect } from '../middleware/authMiddleware.js';
-import { authorize } from '../middleware/authorizationMiddleware.js';
+
+const offerRouter = Router();
 
 /**
- * @file Définit les routes pour les offres commerciales.
+ * @route GET /api/offers
+ * @description Récupère la liste des offres publiques.
+ * @access Public
  */
-const router = Router();
+offerRouter.get('/offers', offerController.getAllOffers);
 
-// Un utilisateur authentifié (admin) peut voir les offres disponibles.
-router.get(
-  '/offers',
-  protect,
-  authorize('admin'),
-  offerController.getAllOffers
-);
-
-export default router;
+export default offerRouter;

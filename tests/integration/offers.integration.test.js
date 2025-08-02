@@ -1,5 +1,7 @@
 /**
- * @file Tests d'intégration pour les routes /api/offers.
+ * @file Tests d'intégration pour la route publique GET /api/offers.
+ * @description Valide que la route est accessible à tous les types d'utilisateurs
+ * (admin, technicien, visiteur non authentifié) et renvoie les données attendues.
  */
 import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
 import { pool } from '../../src/db/index.js';
@@ -10,9 +12,11 @@ import redisClient from '../../src/config/redisClient.js';
 describe('GET /api/offers', () => {
   const getAgent = setupIntegrationTest();
   let agent;
-  let adminToken, technicianToken;
+  let adminToken;
+  let technicianToken;
 
   beforeEach(async () => {
+    // Arrange (Global) : Préparer un état propre avant chaque test.
     agent = getAgent();
     await Promise.all([
       pool.query(
@@ -37,8 +41,9 @@ describe('GET /api/offers', () => {
       'tech.offer@test.com'
     );
     technicianToken = tech.token;
+
     await pool.query(
-      "INSERT INTO offers (name, price, duration_months) VALUES ('Offre Test', 99.99, 12)"
+      "INSERT INTO offers (name, price, duration_months, is_public) VALUES ('Offre Test', 99.99, 12, true)"
     );
   });
 
@@ -47,28 +52,50 @@ describe('GET /api/offers', () => {
     await redisClient.quit();
   });
 
+  /**
+   * @description Teste que la route est accessible pour un administrateur connecté.
+   */
   it('retourne la liste des offres pour un admin (200 OK)', async () => {
-    // Arrange : Le token de l'admin et les offres sont prêts.
+    // Arrange : Le token de l'admin et les offres sont prêts grâce à beforeEach.
 
-    // Act
+    // Act : Effectuer la requête avec le token de l'admin.
     const response = await agent
       .get('/api/offers')
       .set('Authorization', `Bearer ${adminToken}`);
 
-    // Assert
+    // Assert : Vérifier que la réponse est correcte.
     expect(response.statusCode).toBe(200);
     expect(response.body.length).toBeGreaterThan(0);
+    expect(response.body[0].name).toBe('Offre Test');
   });
 
-  it("refuse l'accès pour un technicien (403 Forbidden)", async () => {
+  /**
+   * @description Teste que la route, devenue publique, est bien accessible pour un technicien.
+   */
+  it('retourne la liste des offres pour un technicien connecté (200 OK)', async () => {
     // Arrange : Le token du technicien est prêt.
 
-    // Act
+    // Act : Effectuer la requête avec le token du technicien.
     const response = await agent
       .get('/api/offers')
       .set('Authorization', `Bearer ${technicianToken}`);
 
-    // Assert
-    expect(response.statusCode).toBe(403);
+    // Assert : Vérifier que la réponse est 200 OK, car la route est désormais publique.
+    expect(response.statusCode).toBe(200);
+    expect(response.body.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * @description Teste que la route est accessible pour un simple visiteur sans authentification.
+   */
+  it('retourne la liste des offres pour un visiteur non authentifié (200 OK)', async () => {
+    // Arrange : Aucune authentification n'est nécessaire.
+
+    // Act : Effectuer la requête sans jeton d'authentification.
+    const response = await agent.get('/api/offers');
+
+    // Assert : Vérifier que la réponse est 200 OK, confirmant que la route est publique.
+    expect(response.statusCode).toBe(200);
+    expect(response.body.length).toBeGreaterThan(0);
   });
 });

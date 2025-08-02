@@ -14,8 +14,11 @@ services:
       - /app/node_modules
     # S'assure que la base de données et Redis sont démarrés avant l'API.
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy # Assure que la base de données est prête avant de démarrer l'API.
+      redis:
+        condition: service_healthy # Assure que Redis est prêt avant de démarrer l'API.
+
     # La commande pour lancer l'application en mode développement avec hot-reloading.
     command: npm run dev
 
@@ -30,8 +33,11 @@ services:
       - /app/node_modules
     # S'assure que la base de données et Redis sont démarrés avant le worker.
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
     # La commande pour lancer le worker.
     command: npm run worker
 
@@ -46,6 +52,12 @@ services:
       - "${DB_PORT}:${DB_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Service pour le cache Redis
   redis:
@@ -55,6 +67,12 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 # Définit les volumes nommés pour la persistance des données.
 volumes:

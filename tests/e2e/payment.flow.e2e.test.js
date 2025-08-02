@@ -1,6 +1,11 @@
 /**
- * @file Test de bout en bout (E2E) pour le flux utilisateur complet avec des mocks spécifiques.
- * @description Valide le parcours de l'inscription à la licence après un paiement simulé.
+ * @file Test de bout en bout (E2E) pour le flux utilisateur complet via GraphQL.
+ * @description Valide le parcours critique de l'application :
+ * 1. Inscription d'une nouvelle compagnie via l'API REST.
+ * 2. Création d'une commande via une mutation GraphQL.
+ * 3. Création d'une session de paiement via une mutation GraphQL.
+ * 4. Simulation de la confirmation de paiement via le webhook REST.
+ * 5. Vérification de la création de la licence en base de données et de l'envoi de l'email.
  */
 import {
   jest,
@@ -17,7 +22,7 @@ import { mockCheckoutSession } from '../../mocks/stripe.js';
 import redisClient from '../../src/config/redisClient.js';
 import { mockRegistrationData, mockOffer } from '../../mocks/mockData.js';
 
-// Mock robuste de Stripe qui gère le constructeur et les méthodes statiques.
+// --- Mocks des services externes (Stripe, Nodemailer) ---
 const MOCK_VALID_EVENT = {
   id: `evt_test_${Date.now()}`,
   type: 'checkout.session.completed',
@@ -45,12 +50,15 @@ jest.mock('nodemailer', () => ({
 
 jest.mock('../../src/utils/pdfGenerator.js');
 
-describe('Flux E2E complet : Inscription, Paiement et Licence', () => {
+describe('Flux E2E complet : Inscription (REST) -> Paiement (GraphQL) -> Licence', () => {
   /** @type {supertest.SuperTest<supertest.Test>} */
   let agent;
   let server;
   let testOfferId;
 
+  /**
+   * @description Met en place le serveur de test avant l'exécution de toute la suite.
+   */
   beforeAll(async () => {
     const { createTestApp } = await import('../helpers/app.js');
     const { app, server: localServer } = createTestApp();
@@ -58,6 +66,9 @@ describe('Flux E2E complet : Inscription, Paiement et Licence', () => {
     agent = supertest.agent(app);
   });
 
+  /**
+   * @description Nettoie les connexions (serveur, BDD, Redis) après l'exécution de tous les tests.
+   */
   afterAll(async () => {
     if (server) {
       await new Promise((resolve) => server.close(resolve));
@@ -66,6 +77,9 @@ describe('Flux E2E complet : Inscription, Paiement et Licence', () => {
     await redisClient.quit();
   });
 
+  /**
+   * @description Réinitialise la base de données et les mocks avant chaque test pour garantir l'isolation.
+   */
   beforeEach(async () => {
     jest.clearAllMocks();
     mockSendMail.mockClear();
@@ -73,24 +87,21 @@ describe('Flux E2E complet : Inscription, Paiement et Licence', () => {
       'TRUNCATE companies, users, offers, orders, licenses, payments, processed_webhook_events RESTART IDENTITY CASCADE'
     );
 
+    // Crée une offre de test dans la base de données.
     const offerRes = await pool.query(
-      'INSERT INTO offers (name, description, price, duration_months, max_users, is_public) VALUES ($1, $2, $3, $4, $5, $6) RETURNING offer_id',
+      'INSERT INTO offers (name, price, duration_months, is_public) VALUES ($1, $2, $3, $4) RETURNING offer_id',
       [
         mockOffer.name,
-        mockOffer.description,
         mockOffer.price,
         mockOffer.duration_months,
-        mockOffer.max_users,
         mockOffer.is_public,
       ]
     );
     testOfferId = offerRes.rows[0].offer_id;
   });
 
-  it('doit gérer le flux complet : inscription, commande, paiement, licence et e-mail', async () => {
-    // --- ARRANGE ---
-    const offerId = testOfferId; // --- ACT & ASSERT (Étapes 1-3) ---
-
+  it('doit gérer le flux complet via les mutations GraphQL', async () => {
+    // --- ÉTAPE 1: Inscription (via l'API REST restante) ---
     const registrationResponse = await agent
       .post('/api/register/company')
       .send(mockRegistrationData);
@@ -98,34 +109,66 @@ describe('Flux E2E complet : Inscription, Paiement et Licence', () => {
     const adminToken = registrationResponse.body.accessToken;
     const companyId = registrationResponse.body.company.company_id;
 
+    // --- ÉTAPE 2: Création de la commande (via GraphQL Mutation) ---
+    const createOrderMutation = `
+      mutation CreateOrder($offerId: ID!) {
+        createOrder(offerId: $offerId) {
+          success
+          message
+          order {
+            orderId
+            status
+          }
+        }
+      }
+    `;
     const orderResponse = await agent
-      .post('/api/orders')
+      .post('/graphql')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ offerId });
-    expect(orderResponse.status).toBe(201);
-    const orderId = orderResponse.body.orderId;
+      .send({
+        query: createOrderMutation,
+        variables: { offerId: testOfferId },
+      });
 
+    expect(orderResponse.status).toBe(200); // Les requêtes GraphQL réussies retournent 200 OK
+    expect(orderResponse.body.data.createOrder.success).toBe(true);
+    const orderId = orderResponse.body.data.createOrder.order.orderId;
+
+    // --- ÉTAPE 3: Création de la session de paiement (via GraphQL Mutation) ---
     mockCheckoutSession.metadata = { orderId, companyId };
-
+    const createCheckoutMutation = `
+      mutation CreateCheckout($orderId: ID!) {
+        createCheckoutSession(orderId: $orderId) {
+          sessionId
+          url
+        }
+      }
+    `;
     const checkoutResponse = await agent
-      .post('/api/payments/create-checkout-session')
+      .post('/graphql')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ orderId });
-    expect(checkoutResponse.status).toBe(200); // --- ACT (Étape 4: Webhook) ---
+      .send({ query: createCheckoutMutation, variables: { orderId } });
 
+    expect(checkoutResponse.status).toBe(200);
+    expect(checkoutResponse.body.data.createCheckoutSession).toHaveProperty(
+      'sessionId'
+    );
+
+    // --- ÉTAPE 4: Réception du Webhook (via l'API REST restante) ---
     const webhookResponse = await agent
       .post('/api/webhooks/payment')
       .set('stripe-signature', 't=123,v1=fake_signature')
       .send({ type: 'checkout.session.completed' });
 
-    expect(webhookResponse.status).toBe(200); // --- ASSERT (Étape 5: Création de licence) ---
+    expect(webhookResponse.status).toBe(200);
 
+    // --- ASSERTIONS FINALES : Vérifier les effets de bord en BDD et l'envoi d'email ---
     const licenseRes = await pool.query(
       'SELECT * FROM licenses WHERE order_id = $1',
       [orderId]
     );
     expect(licenseRes.rowCount).toBe(1);
-    expect(licenseRes.rows[0].status).toBe('active'); // --- ASSERT (Étape 6: Envoi d'email) ---
+    expect(licenseRes.rows[0].status).toBe('active');
 
     expect(mockSendMail).toHaveBeenCalledTimes(1);
     const emailOptions = mockSendMail.mock.calls[0][0];

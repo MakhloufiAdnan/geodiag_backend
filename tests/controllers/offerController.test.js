@@ -1,18 +1,19 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-
 /**
  * @file Tests unitaires pour OfferController.
- * @description Valide que le contrôleur appelle le service des offres et gère les réponses.
+ * @description Valide que le contrôleur public des offres appelle le service approprié
+ * et formate correctement la réponse HTTP.
  */
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
-// 1. Mocker le service pour isoler le contrôleur
+// --- MOCKING DES DÉPENDANCES ---
 jest.unstable_mockModule('../../src/services/offerService.js', () => ({
   default: {
-    getAllOffers: jest.fn(),
+    // Simule la méthode spécifique aux offres publiques
+    getAllPublicOffers: jest.fn(),
   },
 }));
 
-// 2. Importer les modules après le mock
+// --- IMPORTS APRÈS LES MOCKS ---
 const { default: offerService } = await import(
   '../../src/services/offerService.js'
 );
@@ -23,8 +24,12 @@ const { default: offerController } = await import(
 describe('OfferController', () => {
   let mockReq, mockRes, mockNext;
 
+  /**
+   * Prépare un environnement de test propre avant chaque exécution.
+   */
   beforeEach(() => {
-    mockReq = { user: { role: 'admin' } };
+    // La requête est vide car la route est publique et ne nécessite pas de corps ou de paramètres.
+    mockReq = {};
     mockRes = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
@@ -33,31 +38,39 @@ describe('OfferController', () => {
     jest.clearAllMocks();
   });
 
-  describe('getAllOffers', () => {
-    it('doit retourner 200 et la liste des offres en cas de succès', async () => {
+  describe('getAllOffers (route publique)', () => {
+    /**
+     * @description Teste le cas nominal où le service retourne une liste d'offres.
+     */
+    it('doit retourner 200 et la liste des offres publiques', async () => {
       // Arrange
       const fakeOffers = [{ id: 'offer-1', name: 'Basic Plan' }];
-      offerService.getAllOffers.mockResolvedValue(fakeOffers);
+      offerService.getAllPublicOffers.mockResolvedValue(fakeOffers);
 
       // Act
       await offerController.getAllOffers(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(offerService.getAllOffers).toHaveBeenCalledWith(mockReq.user);
+      // Vérifie que la méthode pour les offres PUBLIQUES a été appelée, sans argument.
+      expect(offerService.getAllPublicOffers).toHaveBeenCalledWith();
       expect(mockRes.status).toHaveBeenCalledWith(200);
       expect(mockRes.json).toHaveBeenCalledWith(fakeOffers);
       expect(mockNext).not.toHaveBeenCalled();
     });
 
+    /**
+     * @description Teste le cas où le service lève une erreur.
+     */
     it('doit appeler next(error) si le service lève une erreur', async () => {
       // Arrange
-      const fakeError = new Error('Erreur de service');
-      offerService.getAllOffers.mockRejectedValue(fakeError);
+      const fakeError = new Error('Erreur de base de données');
+      offerService.getAllPublicOffers.mockRejectedValue(fakeError);
 
       // Act
       await offerController.getAllOffers(mockReq, mockRes, mockNext);
 
       // Assert
+      // Vérifie que l'erreur est bien propagée au gestionnaire d'erreurs d'Express.
       expect(mockNext).toHaveBeenCalledWith(fakeError);
     });
   });
