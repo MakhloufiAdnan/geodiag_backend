@@ -60,8 +60,18 @@ export const createGraphQLContext = async ({ req }) => {
       return { dataloaders };
     }
 
-    // 6. Retourne le contexte complet avec l'utilisateur authentifié.
-    return { user: currentUser, dataloaders };
+    // 6. Formater l'objet utilisateur brut de la BDD en un objet standard (camelCase).
+    // C'est cette étape qui garantit la cohérence pour le reste de l'application.
+    const userContext = {
+      userId: currentUser.user_id,
+      companyId: currentUser.company_id,
+      email: currentUser.email,
+      role: currentUser.role,
+      isActive: currentUser.is_active,
+    };
+
+    // 7. Retourne le contexte complet avec l'utilisateur authentifié.
+    return { user: userContext, dataloaders };
   } catch (error) {
     // Log l'erreur si le token est invalide ou expiré, sans bloquer la requête.
     logger.warn(

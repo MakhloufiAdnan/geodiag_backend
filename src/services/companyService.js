@@ -16,7 +16,7 @@ class CompanyService {
   async getAllCompanies(page, limit) {
     const offset = (page - 1) * limit;
 
-    // CORRECTION : Utilisation de l'utilitaire de pagination.
+    // Utilisation de l'utilitaire de pagination.
     const [companies, totalItems] = await Promise.all([
       companyRepository.findAll(limit, offset),
       companyRepository.countAll(),

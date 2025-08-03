@@ -1,42 +1,50 @@
-import companyRepository from '../repositories/companyRepository.js';
-import userRepository from '../repositories/userRepository.js';
 import bcrypt from 'bcrypt';
-import { pool } from '../db/index.js';
-import {
-  generateAccessToken,
-  generateRefreshToken,
-} from '../utils/jwtUtils.js';
 import { UserDto } from '../dtos/userDto.js';
 import {
   ConflictException,
   BadRequestException,
 } from '../exceptions/ApiException.js';
+import companyRepository from '../repositories/companyRepository.js';
+import userRepository from '../repositories/userRepository.js';
+import { withTransaction } from '../utils/dbTransaction.js';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+} from '../utils/jwtUtils.js';
 
 /**
  * @file Gère le processus d'inscription d'une nouvelle compagnie.
+ * @class RegistrationService
  */
 class RegistrationService {
   /**
-   * Inscrit une nouvelle compagnie et son premier administrateur.
-   * @param {object} registrationData - Les données d'inscription.
-   * @returns {Promise<{token: string, user: UserDto, company: object}>} Le token et les objets créés.
+   * Inscrit une nouvelle compagnie et son premier administrateur de manière transactionnelle.
+   * La méthode utilise l'utilitaire `withTransaction` pour garantir l'atomicité des opérations en base de données.
+   *
+   * @param {object} registrationData - Les données d'inscription contenant companyData et adminData.
+   * @returns {Promise<{
+   * accessToken: string,
+   * refreshToken: string,
+   * user: UserDto,
+   * company: object
+   * }>} Les jetons et les objets créés.
+   * @throws {BadRequestException} Si les données d'inscription sont incomplètes.
+   * @throws {ConflictException} Si l'email de la compagnie ou de l'administrateur existe déjà.
    */
   async registerCompany(registrationData) {
     const { companyData, adminData } = registrationData;
 
-    // Valider que les données nécessaires sont présentes
     if (!companyData || !adminData) {
-      // Utilise BadRequestException pour les données manquantes ou mal formées
       throw new BadRequestException(
         "Les données de la compagnie et de l'administrateur sont requises."
       );
     }
 
+    // --- Vérifications pré-transactionnelles ---
     const existingCompany = await companyRepository.findByEmail(
       companyData.email
     );
     if (existingCompany) {
-      // Utilise ConflictException pour un email déjà existant.
       throw new ConflictException('Une entreprise avec cet email existe déjà.');
     }
 
@@ -45,15 +53,16 @@ class RegistrationService {
       throw new ConflictException('Un utilisateur avec cet email existe déjà.');
     }
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
+    // --- Opérations transactionnelles ---
+    return withTransaction(async (client) => {
+      // 1. Créer la compagnie
       const newCompany = await companyRepository.create(companyData, client);
 
+      // 2. Hacher le mot de passe de l'admin
       const saltRounds = 10;
       const password_hash = await bcrypt.hash(adminData.password, saltRounds);
 
+      // 3. Créer l'utilisateur admin
       const newAdmin = await userRepository.create(
         {
           ...adminData,
@@ -64,6 +73,7 @@ class RegistrationService {
         client
       );
 
+      // 4. Générer les jetons
       const payload = {
         userId: newAdmin.user_id,
         companyId: newCompany.company_id,
@@ -72,23 +82,14 @@ class RegistrationService {
       const accessToken = generateAccessToken(payload);
       const refreshToken = generateRefreshToken(payload);
 
-      await client.query('COMMIT');
-
+      // 5. Retourner le résultat complet
       return {
         accessToken,
         refreshToken,
         user: new UserDto(newAdmin),
         company: newCompany,
       };
-    } catch (e) {
-      await client.query('ROLLBACK');
-
-      // Relance l'erreur pour qu'elle soit gérée par le errorHandler central.
-      // Si c'est une exceptions, elle sera préservée.
-      throw e;
-    } finally {
-      client.release();
-    }
+    });
   }
 }
 
