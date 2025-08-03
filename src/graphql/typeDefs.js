@@ -11,7 +11,8 @@ export const typeDefs = `#graphql
     enum UserRole {
         admin
         technician
-        super_admin
+        superAdmin
+        supportAgent
     }
 
     # Statuts de licence possibles.

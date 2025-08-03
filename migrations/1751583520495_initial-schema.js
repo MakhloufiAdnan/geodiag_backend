@@ -31,7 +31,7 @@ export const up = (pgm) => {
 
 
     -- ########## 1. DÉFINITION DES TYPES ENUMÉRÉS ##########
-    CREATE TYPE user_role AS ENUM ('admin', 'technician');
+    CREATE TYPE user_role AS ENUM ('admin', 'technician', 'super_admin', 'support_agent');
     CREATE TYPE license_status AS ENUM ('active', 'expired', 'revoked');
     CREATE TYPE payment_status AS ENUM ('pending', 'completed', 'failed');
     CREATE TYPE order_status AS ENUM ('pending', 'processing', 'completed', 'cancelled');
