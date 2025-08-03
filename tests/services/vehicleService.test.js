@@ -1,8 +1,5 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import {
-  ConflictException,
-  NotFoundException,
-} from '../../src/exceptions/ApiException.js';
+import { NotFoundException } from '../../src/exceptions/ApiException.js';
 import { VehicleDto } from '../../src/dtos/vehicleDto.js';
 import { mockVehicle } from '../../mocks/mockData.js';
 
@@ -122,13 +119,16 @@ describe('VehicleService', () => {
     it("doit lever une ConflictException si l'immatriculation existe déjà", async () => {
       // Arrange
       vehicleRepository.findByRegistration.mockResolvedValue(mockVehicle);
+      // findByVin peut retourner null, car le test se concentre sur le conflit d'immatriculation
+      vehicleRepository.findByVin.mockResolvedValue(null);
 
       // Act & Assert
       await expect(vehicleService.createVehicle(vehicleData)).rejects.toThrow(
-        ConflictException
+        "Un véhicule avec cette plaque d'immatriculation existe déjà."
       );
-      // La vérification doit s'arrêter avant de chercher le VIN
-      expect(vehicleRepository.findByVin).not.toHaveBeenCalled();
+
+      // La création ne doit pas avoir lieu
+      expect(vehicleRepository.create).not.toHaveBeenCalled();
     });
 
     it('doit lever une ConflictException si le VIN existe déjà', async () => {
@@ -138,7 +138,7 @@ describe('VehicleService', () => {
 
       // Act & Assert
       await expect(vehicleService.createVehicle(vehicleData)).rejects.toThrow(
-        ConflictException
+        'Un véhicule avec ce VIN existe déjà.'
       );
       // La création ne doit pas avoir lieu
       expect(vehicleRepository.create).not.toHaveBeenCalled();

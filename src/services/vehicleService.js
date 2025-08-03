@@ -60,17 +60,16 @@ class VehicleService {
    * @throws {ConflictException} Si la plaque ou le VIN existe déjà.
    */
   async createVehicle(vehicleData) {
-    const existingByReg = await vehicleRepository.findByRegistration(
-      vehicleData.registration
-    );
+    const [existingByReg, existingByVin] = await Promise.all([
+        vehicleRepository.findByRegistration(vehicleData.registration),
+        vehicleRepository.findByVin(vehicleData.vin)
+    ]);
+
     if (existingByReg) {
-      throw new ConflictException(
-        "Un véhicule avec cette plaque d'immatriculation existe déjà."
-      );
+        throw new ConflictException("Un véhicule avec cette plaque d'immatriculation existe déjà.");
     }
-    const existingByVin = await vehicleRepository.findByVin(vehicleData.vin);
     if (existingByVin) {
-      throw new ConflictException('Un véhicule avec ce VIN existe déjà.');
+        throw new ConflictException('Un véhicule avec ce VIN existe déjà.');
     }
 
     const newVehicle = await vehicleRepository.create(vehicleData);

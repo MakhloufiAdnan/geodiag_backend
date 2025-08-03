@@ -1,9 +1,6 @@
 import bcrypt from 'bcrypt';
 import { UserDto } from '../dtos/userDto.js';
-import {
-  ConflictException,
-  BadRequestException,
-} from '../exceptions/ApiException.js';
+import { ConflictException } from '../exceptions/ApiException.js';
 import companyRepository from '../repositories/companyRepository.js';
 import userRepository from '../repositories/userRepository.js';
 import { withTransaction } from '../utils/dbTransaction.js';
@@ -33,12 +30,6 @@ class RegistrationService {
    */
   async registerCompany(registrationData) {
     const { companyData, adminData } = registrationData;
-
-    if (!companyData || !adminData) {
-      throw new BadRequestException(
-        "Les données de la compagnie et de l'administrateur sont requises."
-      );
-    }
 
     // --- Vérifications pré-transactionnelles ---
     const existingCompany = await companyRepository.findByEmail(
