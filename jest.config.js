@@ -6,26 +6,33 @@
 const config = {
   /**
    * Un script qui s'exécute une seule fois avant le lancement de toutes les suites de test.
-   * Idéal pour initialiser un environnement de test (ex: créer une base de données de test).
    */
-  globalSetup: "./tests/jest.setup.js",
+  globalSetup: './tests/jest.setup.js',
 
   /**
    * Un script qui s'exécute une seule fois après la fin de toutes les suites de test.
-   * Idéal pour nettoyer l'environnement (ex: fermer les connexions à la base de données).
    */
-  globalTeardown: "./tests/jest.teardown.js",
+  globalTeardown: './tests/jest.teardown.js',
 
   /**
    * Indique que le dossier courant est la racine du projet.
    */
-  rootDir: ".",
+  rootDir: '.',
 
   /**
    * Configuration pour la transformation des fichiers.
    * Vide ici car nous utilisons les modules ES6 nativement avec Node.js.
    */
   transform: {},
+
+  /**
+   * @description Crée des alias pour les chemins d'importation.
+   * Cela résout les problèmes de chemins relatifs complexes (ex: ../../../)
+   */
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@mocks/(.*)$': '<rootDir>/mocks/$1',
+  },
 };
 
 export default config;

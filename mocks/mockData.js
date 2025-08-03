@@ -4,26 +4,27 @@
  * brutes retournées par les repositories (avec snake_case) et pour les tests d'intégration.
  */
 import { v4 as uuidv4 } from "uuid";
+import { ROLES } from "@/config/constants.js";
 
 // --- Données pour les Tests Unitaires ---
 
 export const mockAdminUser = {
   user_id: uuidv4(),
   company_id: uuidv4(),
-  role: "admin",
+  role: ROLES.ADMIN,
   password_hash: "hashed_password_for_admin",
 };
 
 export const mockTechnicianUser = {
   user_id: uuidv4(),
   company_id: mockAdminUser.company_id,
-  role: "technician",
+  role: ROLES.TECHNICIAN,
   password_hash: "hashed_password_for_tech",
 };
 
 export const mockUser = {
   user_id: uuidv4(),
-  role: "technician",
+  role: ROLES.TECHNICIAN,
 };
 
 export const mockCompany = {
