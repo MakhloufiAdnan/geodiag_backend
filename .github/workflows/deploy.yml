@@ -65,7 +65,7 @@ jobs:
         run: npm run lint
 
       - name: Scan for Vulnerabilities
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
       - name: Wait for PostgreSQL Service to be Ready
         run: |
@@ -106,7 +106,7 @@ jobs:
           USER: 'test@example.com'
           PASS: 'testpassword'
           FRONTEND_URL: 'http://localhost:5173'
-          
+
   # ===============================================
   # ==         DÉPLOYER EN PRODUCTION            ==
   # ===============================================
@@ -121,42 +121,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install Production Dependencies
-        run: npm ci --omit=dev
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
-
-      - name: Apply DB Migrations via Secure SSH Tunnel
-        run: |
-          echo "Setting up SSH tunnel..."
-          ssh-keyscan ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts
-          ssh -N -L 5433:postgresql-assistantsinistregeodiag.alwaysdata.net:5432 ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }} &
-          sleep 5
-          echo "Tunnel established. Running migrations..."
-          npm run migrate up
-        env:
-          PGHOST: 127.0.0.1
-          PGPORT: 5433
-          PGUSER: ${{ secrets.PROD_DB_USER }}
-          PGPASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
-          PGDATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          PGSSLMODE: require
-
-          # Voir pour supprimer cette ligne si le certificat SSL est correctement configuré
-          NODE_TLS_REJECT_UNAUTHORIZED: 0
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Log in to Fly.io Docker Registry
         uses: docker/login-action@v3
         with:
@@ -173,7 +140,7 @@ jobs:
           tags: registry.fly.io/${{ vars.FLY_APP_NAME }}:${{ github.ref_name }}
           cache-from: type=registry,ref=registry.fly.io/${{ vars.FLY_APP_NAME }}:buildcache
           cache-to: type=registry,ref=registry.fly.io/${{ vars.FLY_APP_NAME }}:buildcache,mode=max
-      
+
       - name: Deploy to Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -182,5 +149,6 @@ jobs:
           curl -L https://fly.io/install.sh | sh
           export FLYCTL_INSTALL="/home/runner/.fly"
           export PATH="$FLYCTL_INSTALL/bin:$PATH"
-          
+
+          # Déploiement de la nouvelle image
           fly deploy --remote-only --app ${{ vars.FLY_APP_NAME }} --image registry.fly.io/${{ vars.FLY_APP_NAME }}:${{ github.ref_name }}

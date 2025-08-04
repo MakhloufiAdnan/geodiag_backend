@@ -24,5 +24,10 @@ trap "echo 'Stopping SSH tunnel...'; kill $TUNNEL_PID" SIGINT SIGTERM
 echo "Tunnel established with PID $TUNNEL_PID. Waiting for it to be ready..."
 sleep 5
 
+echo "Running database migrations through the tunnel..."
+# Utiliser le tunnel pour atteindre la BDD
+npm run migrate up
+echo "Migrations applied successfully."
+
 echo "Starting application with 'npm start'..."
 exec npm start
