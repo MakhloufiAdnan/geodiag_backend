@@ -4,7 +4,7 @@
  * Chaque fonction est documentée pour clarifier son rôle, ses arguments et sa valeur de retour.
  */
 import { GraphQLError } from 'graphql';
-import { ROLES } from '../config/constants.js';
+import { ROLES, ERROR_CODES } from '../config/constants.js';
 import authService from '../services/authService.js';
 import offerService from '../services/offerService.js';
 import orderService from '../services/orderService.js';
@@ -24,7 +24,7 @@ const ensureAdmin = (user) => {
     throw new GraphQLError(
       'Accès refusé. Vous devez être un administrateur de compagnie.',
       {
-        extensions: { code: 'FORBIDDEN' },
+        extensions: { code: ERROR_CODES.FORBIDDEN },
       }
     );
   }
@@ -40,7 +40,7 @@ const ensureSuperAdmin = (user) => {
     throw new GraphQLError(
       'Accès refusé. Privilèges super-administrateur requis.',
       {
-        extensions: { code: 'FORBIDDEN' },
+        extensions: { code: ERROR_CODES.FORBIDDEN },
       }
     );
   }
@@ -78,7 +78,7 @@ export const resolvers = {
       const order = await context.dataloaders.orderLoader.load(id);
       if (!order || order.company_id !== context.user.companyId) {
         throw new GraphQLError('Commande non trouvée ou accès non autorisé.', {
-          extensions: { code: 'NOT_FOUND' },
+          extensions: { code: ERROR_CODES.NOT_FOUND },
         });
       }
       return order;
@@ -102,7 +102,7 @@ export const resolvers = {
     me: (_, __, context) => {
       if (!context.user)
         throw new GraphQLError('Non authentifié.', {
-          extensions: { code: 'UNAUTHENTICATED' },
+          extensions: { code: ERROR_CODES.UNAUTHENTICATED },
         });
       return userService.getUserById(context.user.userId, context.user);
     },

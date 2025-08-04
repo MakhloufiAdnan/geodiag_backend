@@ -14,3 +14,15 @@ export const ORDER_STATUS = Object.freeze({
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
 });
+
+export const ERROR_CODES = Object.freeze({
+  // Erreurs Client (4xx)
+  BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+
+  // Erreurs Serveur (5xx)
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+});
