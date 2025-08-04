@@ -1,0 +1,6 @@
+version: 2
+updates:
+  - package-ecosystem: "npm" # Pour un projet Node.js/npm
+    directory: "/" # Le dossier où se trouve votre package.json
+    schedule:
+      interval: "weekly" # Vérifie les mises à jour une fois par semaine
