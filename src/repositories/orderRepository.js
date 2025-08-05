@@ -55,7 +55,7 @@ class OrderRepository {
    */
   async findByIds(ids) {
     const { rows } = await db.query(
-      'SELECT * FROM orders WHERE order_id = ANY($1::uuid)',
+      'SELECT * FROM orders WHERE order_id = ANY($1::uuid[])',
       [ids]
     );
     return rows;
