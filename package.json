@@ -14,7 +14,7 @@
     "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest --runInBand --coverage",
     "lint": "eslint . --ext .js",
     "migrate": "node-pg-migrate",
-    "worker": "node src/worker.js",
+    "worker": "node src/worker/index.js",
     "tree": "tree /f | findstr /v /i \"node_modules coverage dist .git package-lock.json .d.ts\"",
     "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\""
   },
