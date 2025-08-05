@@ -34,9 +34,12 @@ jobs:
         env:
           POSTGRES_USER: geodiag
           POSTGRES_DB: geodiag_test
+          # Accepte les connexions sans mot de passe. C'est la solution fiable
+          # pour les PRs de Dependabot qui n'ont pas accès aux secrets au démarrage du service.
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
+        # On garde un healthcheck simple pour que le service reste actif.
         options: >-
           --health-cmd "true"
 
@@ -65,20 +68,15 @@ jobs:
       - name: Install Dependencies
         run: npm ci
       
+      # Étape d'attente manuelle pour garantir que la BDD est prête.
       - name: Wait for PostgreSQL to be ready
         run: |
           echo "Waiting for PostgreSQL service..."
-          # On augmente un peu la patience de la boucle
-          for i in {1..15}; do
-            if pg_isready -h localhost -p 5432 -U geodiag; then
-              echo "PostgreSQL is ready!"
-              exit 0
-            fi
+          until pg_isready -h localhost -p 5432 -U geodiag; do
             echo "PostgreSQL is unavailable - sleeping"
             sleep 2
           done
-          echo "PostgreSQL did not become ready in time."
-          exit 1
+          echo "PostgreSQL is ready!"
 
       - name: Lint Code
         run: npm run lint
@@ -89,6 +87,7 @@ jobs:
       - name: Run Tests
         run: npm test
         env:
+          # L'URL de connexion n'a plus besoin de mot de passe.
           DATABASE_URL: postgresql://geodiag@localhost:5432/geodiag_test
           REDIS_URL: redis://localhost:6379
           JWT_ACCESS_SECRET: ${{ secrets.TEST_JWT_ACCESS_SECRET }}
@@ -104,15 +103,7 @@ jobs:
           USER: 'test@example.com'
           PASS: 'testpassword'
           FRONTEND_URL: 'http://localhost:5173'
-      
-      # NOUVELLE ÉTAPE DE DIAGNOSTIC
-      - name: Show Docker logs on failure
-        # Ne s'exécute que si une des étapes précédentes a échoué
-        if: failure()
-        run: |
-          echo "Dumping logs for postgres container..."
-          # Trouve dynamiquement l'ID du conteneur postgres et affiche ses logs.
-          docker logs $(docker ps --filter "ancestor=postgres:16-alpine" --format "{{.ID}}")
+
 
   # ===============================================
   # ==         DÉPLOYER EN PRODUCTION            ==
