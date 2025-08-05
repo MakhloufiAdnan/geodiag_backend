@@ -21,7 +21,7 @@ import { pool } from '../src/db/index.js';
 import redisClient from '../src/config/redisClient.js';
 import logger from '../src/config/logger.js';
 import { testState } from './global.js';
-import boss from '../src/worker.js';
+import boss from '../src/worker/index.js';
 
 export default async () => {
   logger.info('\nTearing down test environment...');

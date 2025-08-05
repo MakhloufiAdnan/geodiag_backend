@@ -1,8 +1,8 @@
 import PgBoss from 'pg-boss';
 import 'dotenv/config';
-import paymentJobHandler from './jobs/paymentJobHandler.js';
-import dbConfig from './config/database.js';
-import logger from './config/logger.js';
+import paymentJobHandler from '../jobs/paymentJobHandler.js';
+import dbConfig from '../config/database.js';
+import logger from '../config/logger.js';
 
 /**
  * @file Point d'entrée du processus worker.
