@@ -22,6 +22,19 @@ class LicenseRepository {
   }
 
   /**
+   * Trouve une licence par son identifiant unique (UUID).
+   * @param {string} id - L'ID de la licence à trouver.
+   * @returns {Promise<object|undefined>} L'objet licence s'il est trouvé, sinon undefined.
+   */
+  async findById(id) {
+    const { rows } = await db.query(
+      'SELECT * FROM licenses WHERE license_id = $1',
+      [id]
+    );
+    return rows[0];
+  }
+
+  /**
    * Trouve une licence active pour une compagnie donnée.
    * Une licence est considérée comme active si son statut est 'active' et si sa date
    * d'expiration n'est pas encore passée.
