@@ -13,6 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Définit des permissions restreintes pour le workflow, une bonne pratique de sécurité.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
 
   # ===============================================
