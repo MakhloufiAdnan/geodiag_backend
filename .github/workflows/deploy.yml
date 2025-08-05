@@ -66,28 +66,6 @@ jobs:
 
       - name: Scan for Vulnerabilities
         run: npm audit --audit-level=critical
-
-      - name: Wait for PostgreSQL Service to be Ready
-        run: |
-          echo "Waiting for PostgreSQL to be ready..."
-          until pg_isready -h localhost -p 5432 -U geodiag; do
-            echo "PostgreSQL is unavailable - sleeping"
-            sleep 1
-          done
-          echo "PostgreSQL is up and running!"
-        env:
-          PGUSER: geodiag
-          PGPASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
-
-      - name: Wait for Redis Service to be Ready
-        run: |
-          echo "Waiting for Redis to be ready..."
-          until nc -z localhost 6379; do
-            echo "Redis is unavailable - sleeping"
-            sleep 1
-          done
-          echo "Redis is up and running!"
-
       - name: Run Tests
         run: npm test
         env:

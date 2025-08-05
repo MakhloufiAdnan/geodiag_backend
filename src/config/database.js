@@ -14,7 +14,7 @@ const dbConfig = {
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: isTestEnvironment ? 'geodiag_test_db' : process.env.DB_DATABASE,
+  database: isTestEnvironment ? 'geodiag_test' : process.env.DB_DATABASE,
 };
 
 export default dbConfig;
