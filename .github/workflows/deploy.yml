@@ -37,11 +37,6 @@ jobs:
           POSTGRES_DB: geodiag_test
         ports:
           - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U geodiag"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
       redis:
         image: redis:7-alpine
@@ -68,6 +63,15 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL service..."
+          until pg_isready -h localhost -p 5432 -U geodiag; do
+            echo "PostgreSQL is unavailable - sleeping"
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+          
       - name: Lint Code
         run: npm run lint
 
