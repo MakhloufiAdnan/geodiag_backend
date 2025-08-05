@@ -61,15 +61,17 @@ class VehicleService {
    */
   async createVehicle(vehicleData) {
     const [existingByReg, existingByVin] = await Promise.all([
-        vehicleRepository.findByRegistration(vehicleData.registration),
-        vehicleRepository.findByVin(vehicleData.vin)
+      vehicleRepository.findByRegistration(vehicleData.registration),
+      vehicleRepository.findByVin(vehicleData.vin),
     ]);
 
     if (existingByReg) {
-        throw new ConflictException("Un véhicule avec cette plaque d'immatriculation existe déjà.");
+      throw new ConflictException(
+        "Un véhicule avec cette plaque d'immatriculation existe déjà."
+      );
     }
     if (existingByVin) {
-        throw new ConflictException('Un véhicule avec ce VIN existe déjà.');
+      throw new ConflictException('Un véhicule avec ce VIN existe déjà.');
     }
 
     const newVehicle = await vehicleRepository.create(vehicleData);

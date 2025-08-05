@@ -1,49 +1,48 @@
-# ÉTAPE 1 : BUILD
-FROM node:22.17.0-alpine3.21 AS builder
+# --- ÉTAPE 1 : BUILD --- 
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copie des fichiers de dépendances
+# Copie des fichiers de dépendances pour tirer parti du cache Docker.
 COPY package*.json ./
 
-# Cela n'installera que les dépendances de production en se basant sur le fichier package-lock.json
+# Installe uniquement les dépendances de production de manière fiable et rapide.
 RUN npm ci --omit=dev
 
-# Copie le reste du code source
+# Copie le reste du code source de l'application.
 COPY . .
 
-# ÉTAPE 2 : PRODUCTION 
-# Je repart d'une image neuve et légère pour la production
-FROM node:22.17.0-alpine3.21
+# --- ÉTAPE 2 : PRODUCTION --- 
+
+# Repart d'une image de base neuve et identique pour une image finale légère.
+FROM node:22-alpine
 WORKDIR /app
 
-# Création d'un utilisateur et un groupe non-root
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    chown -R appuser:appgroup /app && \
+    apk add --no-cache curl openssh-client postgresql-client
 
-# S'assurer que le nouvel utilisateur est propriétaire de son répertoire de travail
-RUN chown -R appuser:appgroup /app
-
-# Installer le client openssh AVANT de changer d'utilisateur
-RUN apk add --no-cache openssh-client curl
-
-# Copie uniquement des dépendances de production depuis l'étape "builder"
+# Copie les artefacts nécessaires depuis l'étape 'builder' en assignant
+# directement le bon propriétaire pour plus de sécurité.
 COPY --chown=appuser:appgroup --from=builder /app/node_modules ./node_modules
 COPY --chown=appuser:appgroup --from=builder /app/package*.json ./
 COPY --chown=appuser:appgroup --from=builder /app/src ./src
 COPY --chown=appuser:appgroup --from=builder /app/index.js ./index.js
 COPY --chown=appuser:appgroup start.sh .
 
+# Rend le script de démarrage exécutable.
 RUN chmod +x ./start.sh
 
-# Active le Healthcheck pour que Fly.io puisse surveiller la santé de l'application
+# Active le Healthcheck pour que l'orchestrateur puisse surveiller la santé de l'application.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/healthz || exit 1
 
-# Change l'utilisateur pour ne plus être root
+# Change l'utilisateur pour ne plus être root, une mesure de sécurité essentielle.
 USER appuser
 
-# Expose le port
+# Expose le port sur lequel l'application écoute.
 EXPOSE 3000
 
-# Lance l'application
+# Définit la commande pour lancer l'application au démarrage du conteneur.
 CMD ["./start.sh"]
