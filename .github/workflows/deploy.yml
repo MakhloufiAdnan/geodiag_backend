@@ -33,8 +33,8 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: geodiag
-          POSTGRES_PASSWORD: testpassword
           POSTGRES_DB: geodiag_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -53,6 +53,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -62,7 +64,7 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
-
+      
       # Étape d'attente manuelle pour garantir que la BDD est prête.
       - name: Wait for PostgreSQL to be ready
         run: |
@@ -72,16 +74,18 @@ jobs:
             sleep 2
           done
           echo "PostgreSQL is ready!"
-          
+
       - name: Lint Code
         run: npm run lint
 
       - name: Scan for Vulnerabilities
         run: npm audit --audit-level=critical
+      
       - name: Run Tests
         run: npm test
         env:
-          DATABASE_URL: postgresql://geodiag:testpassword@localhost:5432/geodiag_test
+          # L'URL de connexion n'a plus besoin de mot de passe.
+          DATABASE_URL: postgresql://geodiag@localhost:5432/geodiag_test
           REDIS_URL: redis://localhost:6379
           JWT_ACCESS_SECRET: ${{ secrets.TEST_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
