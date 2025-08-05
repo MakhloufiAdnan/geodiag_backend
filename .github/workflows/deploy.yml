@@ -37,6 +37,8 @@ jobs:
           POSTGRES_DB: geodiag_test
         ports:
           - 5432:5432
+        options: >-
+          --health-cmd "true"
 
       redis:
         image: redis:7-alpine
@@ -71,7 +73,7 @@ jobs:
             sleep 2
           done
           echo "PostgreSQL is ready!"
-          
+
       - name: Lint Code
         run: npm run lint
 
