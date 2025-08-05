@@ -33,12 +33,12 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: geodiag
-          POSTGRES_PASSWORD: testpassword
+          POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
           POSTGRES_DB: geodiag_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U geodiag"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -76,7 +76,7 @@ jobs:
       - name: Run Tests
         run: npm test
         env:
-          DATABASE_URL: postgresql://geodiag:testpassword@localhost:5432/geodiag_test
+          DATABASE_URL: postgresql://geodiag:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/geodiag_test
           REDIS_URL: redis://localhost:6379
           JWT_ACCESS_SECRET: ${{ secrets.TEST_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
