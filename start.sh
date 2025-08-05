@@ -1,33 +1,36 @@
-# 'set -e' garantit que le script s'arrêtera immédiatement si une commande échoue.
+# @file         start.sh
+# @description  Script de démarrage pour le conteneur de l'application.
+#               Ce script assure que la base de données est prête avant de
+#               lancer les migrations, puis démarre l'application Node.js.
+#
+# @requires     DATABASE_URL - Une variable d'environnement contenant l'URL de
+#               connexion complète à la base de données PostgreSQL.
+
+# Configure le shell pour qu'il quitte immédiatement si une commande échoue.
 set -e
 
-# Crée le répertoire .ssh s'il n'existe pas
-mkdir -p /app/.ssh
+# --- Attente de la Base de Données ---
+# Boucle qui met en pause l'exécution du script jusqu'à ce que la base de
+# données soit prête à accepter des connexions. C'est essentiel dans un
+# environnement conteneurisé où les services démarrent en parallèle.
+echo "Waiting for database to be ready..."
+until pg_isready --dbname="$DATABASE_URL" --quiet; do
+  echo "PostgreSQL is unavailable - sleeping for 2 seconds..."
+  sleep 2
+done
+echo "✅ Database is up and running!"
 
-# Configure la clé privée SSH
-echo "$PROD_SSH_PRIVATE_KEY" > /app/.ssh/id_ed25519
-chmod 600 /app/.ssh/id_ed25519
-
-# Scanne et ajoute la clé du serveur aux hôtes de confiance.
-# Cette méthode est plus robuste et forcera la mise à jour du cache Docker.
-ssh-keyscan ssh-assistantsinistregeodiag.alwaysdata.net >> /app/.ssh/known_hosts
-
-echo "Starting SSH tunnel for PostgreSQL..."
-ssh -N -L 5433:localhost:5432 assistantsinistregeodiag@ssh-assistantsinistregeodiag.alwaysdata.net &
-
-# Récupère l'ID du processus (PID) du tunnel SSH
-TUNNEL_PID=$!
-
-# Met en place un "trap" pour un arrêt propre
-trap "echo 'Stopping SSH tunnel...'; kill $TUNNEL_PID" SIGINT SIGTERM
-
-echo "Tunnel established with PID $TUNNEL_PID. Waiting for it to be ready..."
-sleep 5
-
-echo "Running database migrations through the tunnel..."
-# Utiliser le tunnel pour atteindre la BDD
+# --- Application des Migrations ---
+# Une fois la base de données accessible, cette commande applique toutes les
+# migrations de base de données qui n'ont pas encore été exécutées,
+# garantissant que le schéma est à jour avec le code.
+echo "Running database migrations..."
 npm run migrate up
-echo "Migrations applied successfully."
+echo "✅ Migrations applied successfully."
 
-echo "Starting application with 'npm start'..."
+# --- Démarrage de l'Application ---
+# 'exec' remplace le processus shell actuel par le processus de l'application.
+# C'est une bonne pratique qui assure que les signaux du système (comme
+# l'arrêt du conteneur) sont correctement transmis à l'application Node.js.
+echo "🚀 Starting application..."
 exec npm start
