@@ -1,6 +1,6 @@
 {
   "name": "geodiag-backend",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Backend API for the GeoDiag wheel alignment application.",
   "main": "index.js",
   "type": "module",
