@@ -14,11 +14,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Définit des permissions restreintes pour le workflow.
-permissions:
-  contents: read
-  pull-requests: write
-  
 jobs:
   # ===============================================
   # ==           TESTER L'APPLICATION            ==
@@ -33,15 +28,15 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: geodiag
+          POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
           POSTGRES_DB: geodiag_test
-          # Accepte les connexions sans mot de passe. C'est la solution fiable
-          # pour les PRs de Dependabot qui n'ont pas accès aux secrets au démarrage du service.
-          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
-        # On garde un healthcheck simple pour que le service reste actif.
         options: >-
-          --health-cmd "true"
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
       redis:
         image: redis:7-alpine
@@ -56,8 +51,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -67,28 +60,16 @@ jobs:
 
       - name: Install Dependencies
         run: npm ci
-      
-      # Étape d'attente manuelle pour garantir que la BDD est prête.
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          echo "Waiting for PostgreSQL service..."
-          until pg_isready -h localhost -p 5432 -U geodiag; do
-            echo "PostgreSQL is unavailable - sleeping"
-            sleep 2
-          done
-          echo "PostgreSQL is ready!"
 
       - name: Lint Code
         run: npm run lint
 
       - name: Scan for Vulnerabilities
         run: npm audit --audit-level=critical
-      
       - name: Run Tests
         run: npm test
         env:
-          # L'URL de connexion n'a plus besoin de mot de passe.
-          DATABASE_URL: postgresql://geodiag@localhost:5432/geodiag_test
+          DATABASE_URL: postgresql://geodiag:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/geodiag_test
           REDIS_URL: redis://localhost:6379
           JWT_ACCESS_SECRET: ${{ secrets.TEST_JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
@@ -103,7 +84,6 @@ jobs:
           USER: 'test@example.com'
           PASS: 'testpassword'
           FRONTEND_URL: 'http://localhost:5173'
-
 
   # ===============================================
   # ==         DÉPLOYER EN PRODUCTION            ==
