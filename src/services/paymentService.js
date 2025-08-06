@@ -4,7 +4,6 @@ import orderRepository from '../repositories/orderRepository.js';
 import companyRepository from '../repositories/companyRepository.js';
 import offerRepository from '../repositories/offerRepository.js';
 import processedWebhookRepository from '../repositories/processedWebhookRepository.js';
-import jobRepository from '../repositories/jobRepository.js';
 import licenseService from './licenseService.js';
 import emailService from './emailService.js';
 import { LicenseDto } from '../dtos/licenseDto.js';
@@ -18,6 +17,7 @@ import {
 
 import logger from '../config/logger.js';
 import { withTransaction } from '../utils/dbTransaction.js';
+import boss from '../worker/index.js'; // Import de pg-boss
 
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -118,12 +118,13 @@ class PaymentService {
         throw err; // Relance les autres erreurs
       }
 
-      // Si l'événement est un paiement réussi, on crée une tâche pour le worker.
+      // Si l'événement est un paiement réussi, on crée une tâche pour le worker via pg-boss.
       if (event.type === 'checkout.session.completed') {
-        await jobRepository.create(
+        await boss.send(
           'process_successful_payment',
           event.data.object, // Le payload de la tâche est la session Stripe
-          client
+          {}, // Options de tâche (vide pour l'instant, mais peut être utilisé pour des délais, etc.)
+          client // Le client de transaction pour que la tâche soit dans la même transaction
         );
       }
     });

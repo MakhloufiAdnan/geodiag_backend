@@ -20,7 +20,7 @@ services:
         condition: service_healthy # Assure que Redis est prêt avant de démarrer l'API.
 
     # La commande pour lancer l'application en mode développement avec hot-reloading.
-    command: npm run dev
+    command: npm start
 
   # Service pour le worker Node.js
   worker:

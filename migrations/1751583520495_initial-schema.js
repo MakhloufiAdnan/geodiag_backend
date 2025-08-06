@@ -42,10 +42,6 @@ export const up = (pgm) => {
     CREATE TYPE submission_status AS ENUM ('new', 'read', 'archived');
     CREATE TYPE payment_method AS ENUM ('card', 'paypal', 'transfer');
     CREATE TYPE vehicle_image_category AS ENUM ('front_axle', 'rear_axle', 'vin_plate', 'damage', 'other');
-    
-    -- TYPE POUR LA FILE D'ATTENTE DES TÂCHES
-    CREATE TYPE job_status AS ENUM ('pending', 'in_progress', 'completed', 'failed');
-
 
     -- ########## 2. TABLES PRINCIPALES (COEUR DE L'APPLICATION) ##########
     
@@ -272,19 +268,6 @@ export const up = (pgm) => {
         event_id TEXT PRIMARY KEY,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
-    -- TABLE POUR LA FILE D'ATTENTE DES TÂCHES
-    CREATE TABLE jobs (
-        id BIGSERIAL PRIMARY KEY,
-        type VARCHAR(255) NOT NULL,
-        payload JSONB NOT NULL,
-        status job_status NOT NULL DEFAULT 'pending',
-        retry_count INT NOT NULL DEFAULT 0,
-        last_error TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TRIGGER set_timestamp_jobs BEFORE UPDATE ON jobs FOR EACH ROW EXECUTE PROCEDURE trigger_set_timestamp();
     
     -- ########## 6. INDEX POUR L'OPTIMISATION DES REQUÊTES ##########
     
@@ -319,10 +302,7 @@ export const up = (pgm) => {
     CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens(family_id);
     CREATE INDEX idx_vehicles_options_gin ON vehicles USING GIN (options);
     CREATE INDEX idx_licenses_active ON licenses(company_id) WHERE status = 'active';
-    
-    -- Pour trouver rapidement les tâches en attente à traiter
-    CREATE INDEX idx_jobs_pending ON jobs(status, created_at) WHERE status = 'pending';
-    `);
+  `);
 };
 
 /**
@@ -356,12 +336,10 @@ export const down = (pgm) => {
     DROP INDEX IF EXISTS idx_vehicles_options_gin;
     DROP INDEX IF EXISTS idx_licenses_active;
     -- Suppression de l'index de la file d'attente
-    DROP INDEX IF EXISTS idx_jobs_pending;
 
     -- ########## 5. SUPPRESSION DES TABLES (ORDRE INVERSE DE CRÉATION) ##########
     
     -- Suppression des tables pour la gestion avancée
-    DROP TABLE IF EXISTS jobs;
     DROP TABLE IF EXISTS processed_webhook_events;
     DROP TABLE IF EXISTS offline_data_cache;
     
@@ -394,7 +372,6 @@ export const down = (pgm) => {
 
     -- ########## 2. SUPPRESSION DES TYPES ENUMÉRÉS ##########
     -- Suppression du type pour la file d'attente
-    DROP TYPE IF EXISTS job_status;
     DROP TYPE IF EXISTS vehicle_image_category;
     DROP TYPE IF EXISTS payment_method;
     DROP TYPE IF EXISTS submission_status;

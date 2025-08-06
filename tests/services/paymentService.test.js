@@ -38,6 +38,12 @@ jest.unstable_mockModule('../../src/db/index.js', () => ({
   },
 }));
 
+// Mock pour pg-boss
+const mockBossSend = jest.fn();
+jest.unstable_mockModule('../../src/worker/index.js', () => ({
+  default: { send: mockBossSend },
+}));
+
 jest.unstable_mockModule('../../src/repositories/orderRepository.js', () => ({
   default: { findById: jest.fn(), updateStatus: jest.fn() },
 }));
@@ -54,9 +60,6 @@ jest.unstable_mockModule(
   '../../src/repositories/processedWebhookRepository.js',
   () => ({ default: { create: jest.fn() } })
 );
-jest.unstable_mockModule('../../src/repositories/jobRepository.js', () => ({
-  default: { create: jest.fn() },
-}));
 jest.unstable_mockModule('../../src/services/licenseService.js', () => ({
   default: { createLicenseForOrder: jest.fn() },
 }));
@@ -92,9 +95,6 @@ const { default: emailService } = await import(
 const { default: processedWebhookRepository } = await import(
   '../../src/repositories/processedWebhookRepository.js'
 );
-const { default: jobRepository } = await import(
-  '../../src/repositories/jobRepository.js'
-);
 const { generateInvoicePdf } = await import('../../src/utils/pdfGenerator.js');
 const { default: logger } = await import('../../src/config/logger.js');
 
@@ -112,6 +112,8 @@ describe('PaymentService', () => {
         return Promise.resolve();
       return Promise.resolve({ rows: [] });
     });
+    // Réinitialiser NODE_ENV à 'test' avant chaque test pour éviter les interférences
+    process.env.NODE_ENV = 'test';
   });
 
   describe('createCheckoutSession', () => {
@@ -214,7 +216,9 @@ describe('PaymentService', () => {
         'completed',
         mockClient
       );
-      expect(jobRepository.create).not.toHaveBeenCalled();
+      
+      // En mode test, boss.send ne doit pas être appelé car le traitement est synchrone
+      expect(mockBossSend).not.toHaveBeenCalled();
     });
 
     it("doit lever une ConflictException si l'événement a déjà été traité (mode production)", async () => {
@@ -229,9 +233,28 @@ describe('PaymentService', () => {
         paymentService.queuePaymentWebhook(mockEvent)
       ).rejects.toThrow(ConflictException);
       expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
-      expect(jobRepository.create).not.toHaveBeenCalled();
+      expect(mockBossSend).not.toHaveBeenCalled(); // Pas d'appel à boss.send si la création du webhook échoue
+    });
 
-      process.env.NODE_ENV = 'test'; // Revenir à l'état initial
+    it("doit mettre en file d'attente une tâche pour processSuccessfulPayment en mode production", async () => {
+      process.env.NODE_ENV = 'production';
+      processedWebhookRepository.create.mockResolvedValue({}); // Simule la création réussie du webhook
+      mockBossSend.mockResolvedValue({}); // Mock l'envoi de la tâche par boss
+
+      await paymentService.queuePaymentWebhook(mockEvent);
+
+      expect(processedWebhookRepository.create).toHaveBeenCalledWith(
+        mockEvent.id,
+        expect.any(Object)
+      );
+      expect(mockBossSend).toHaveBeenCalledWith(
+        'process_successful_payment',
+        mockEvent.data.object,
+        {}, // L'objet d'options vide que vous avez ajouté
+        expect.any(Object)
+      );
+      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
     });
   });
 
@@ -248,6 +271,7 @@ describe('PaymentService', () => {
       licenseService.createLicenseForOrder.mockResolvedValue(mockLicense);
       companyRepository.findById.mockResolvedValue(mockCompany);
       generateInvoicePdf.mockResolvedValue(Buffer.from('pdf'));
+      emailService.sendLicenseAndInvoice.mockResolvedValue({}); // S'assurer que l'email réussit
 
       const result = await paymentService.processSuccessfulPayment(mockSession);
 
