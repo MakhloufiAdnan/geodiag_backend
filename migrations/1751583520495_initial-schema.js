@@ -171,7 +171,7 @@ export const up = (pgm) => {
     CREATE TRIGGER set_version_vehicles BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE PROCEDURE trigger_increment_version(); 
     
     CREATE TABLE measurement_reports (
-        report_id UUID PRIMARY KEY, 
+        report_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         vehicle_id UUID NOT NULL REFERENCES vehicles(vehicle_id) ON DELETE CASCADE,
         user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
         report_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -235,7 +235,7 @@ export const up = (pgm) => {
     CREATE TABLE support_tickets (
         ticket_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         company_id UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-        created_by_user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        created_by_user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
         assigned_to_user_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
         subject VARCHAR(255) NOT NULL,
         status ticket_status NOT NULL DEFAULT 'open',

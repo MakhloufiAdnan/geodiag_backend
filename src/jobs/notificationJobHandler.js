@@ -21,20 +21,36 @@ import emailService from '../services/emailService.js';
 async function notificationJobHandler(job) {
   const { order, company, offer, license } = job.data;
 
-  logger.info({ orderId: order.order_id }, `Événement 'payment-succeeded' reçu. Traitement de la notification.`);
+  logger.info(
+    { orderId: order.order_id },
+    `Événement 'payment-succeeded' reçu. Traitement de la notification.`
+  );
 
   if (!company) {
-    logger.warn({ orderId: order.order_id }, "Compagnie non trouvée dans le payload de l'événement, impossible d'envoyer l'email.");
+    logger.warn(
+      { orderId: order.order_id },
+      "Compagnie non trouvée dans le payload de l'événement, impossible d'envoyer l'email."
+    );
     // On ne relance pas d'erreur, car c'est une situation finale qui ne peut être résolue par un retry.
     return;
   }
 
   try {
     const invoicePdfBuffer = await generateInvoicePdf(order, company, offer);
-    await emailService.sendLicenseAndInvoice(company, license, invoicePdfBuffer);
-    logger.info({ orderId: order.order_id }, `Email de confirmation pour la licence envoyé avec succès.`);
+    await emailService.sendLicenseAndInvoice(
+      company,
+      license,
+      invoicePdfBuffer
+    );
+    logger.info(
+      { orderId: order.order_id },
+      `Email de confirmation pour la licence envoyé avec succès.`
+    );
   } catch (error) {
-    logger.error({ err: error, orderId: order.order_id }, "Échec de l'envoi de la notification post-paiement.");
+    logger.error(
+      { err: error, orderId: order.order_id },
+      "Échec de l'envoi de la notification post-paiement."
+    );
     // On relance l'erreur pour que pg-boss puisse planifier une nouvelle tentative
     // selon la politique de retry configurée.
     throw error;

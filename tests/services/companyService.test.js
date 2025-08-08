@@ -1,6 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { mockCompany } from '../../mocks/mockData.js';
-import { NotFoundException } from '../../src/exceptions/ApiException.js'; 
+import { NotFoundException } from '../../src/exceptions/ApiException.js';
 
 /**
  * @file Tests unitaires pour CompanyService.

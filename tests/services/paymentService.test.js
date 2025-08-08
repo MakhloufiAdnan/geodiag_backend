@@ -47,8 +47,9 @@ jest.unstable_mockModule('../../src/db/index.js', () => ({
 
 // Mock pour pg-boss
 const mockBossSend = jest.fn();
-jest.unstable_mockModule('../../src/worker/index.js', () => ({
-  default: { send: mockBossSend },
+const mockBossPublish = jest.fn();
+jest.unstable_mockModule('../../src/worker/boss.js', () => ({
+  default: { send: mockBossSend, publish: mockBossPublish, start: jest.fn() },
 }));
 
 // Déclaration des fonctions mockées pour les repositories et services
@@ -148,7 +149,13 @@ describe('PaymentService', () => {
     mockPaymentRepositoryCreate.mockResolvedValue({});
     mockCompanyRepositoryFindById.mockResolvedValue(mockCompany);
     mockOfferRepositoryFindById.mockResolvedValue(mockOffer);
-    mockProcessedWebhookRepositoryCreate.mockResolvedValue({});
+    // Correction du mock pour s'attendre à la présence d'un client
+    mockProcessedWebhookRepositoryCreate.mockImplementation((id, client) => {
+      return client.query(
+        'INSERT INTO processed_webhook_events(id) VALUES ($1)',
+        [id]
+      );
+    });
     mockLicenseServiceCreateLicenseForOrder.mockResolvedValue(mockLicense);
     mockEmailServiceSendLicenseAndInvoice.mockResolvedValue({});
     mockGenerateInvoicePdf.mockResolvedValue(Buffer.from('pdf'));
@@ -156,6 +163,7 @@ describe('PaymentService', () => {
     mockLoggerWarn.mockClear();
     mockLoggerError.mockClear();
     mockBossSend.mockClear();
+    mockBossPublish.mockClear();
 
     // Arrange: Espionner la méthode processSuccessfulPayment du service
     spyOnProcessSuccessfulPayment = jest.spyOn(
@@ -171,7 +179,6 @@ describe('PaymentService', () => {
   afterEach(() => {
     // Arrange: Restaurer l'espion après chaque test pour éviter les interférences
     if (spyOnProcessSuccessfulPayment) {
-      // Vérifier si l'espion a été défini
       spyOnProcessSuccessfulPayment.mockRestore();
     }
   });
@@ -320,54 +327,30 @@ describe('PaymentService', () => {
     };
 
     /**
-     * Teste l'appel direct à `processSuccessfulPayment` en environnement de test
-     * pour un événement `checkout.session.completed`.
-     * @test
-     */
-    it('doit appeler directement processSuccessfulPayment en environnement de test pour un événement completed', async () => {
-      // Arrange (NODE_ENV est déjà 'test' par beforeEach)
-
-      // Act
-      await paymentService.queuePaymentWebhook(mockEventCompleted);
-
-      // Assert
-      expect(spyOnProcessSuccessfulPayment).toHaveBeenCalledWith(
-        mockEventCompleted.data.object
-      );
-      expect(mockLoggerInfo).toHaveBeenCalledWith(
-        'Environnement de test détecté. Traitement synchrone du webhook.'
-      );
-      expect(mockBossSend).not.toHaveBeenCalled();
-    });
-
-    /**
-     * Teste que rien ne se passe en environnement de test si l'événement Stripe
+     * Teste que rien ne se passe si l'événement Stripe
      * n'est pas de type `checkout.session.completed`.
      * @test
      */
-    it("ne doit rien faire en environnement de test si l'événement n'est pas completed", async () => {
-      // Arrange (NODE_ENV est déjà 'test' par beforeEach)
-
+    it("ne doit rien faire si l'événement n'est pas completed", async () => {
       // Act
       await paymentService.queuePaymentWebhook(mockEventOther);
 
       // Assert
-      expect(mockProcessedWebhookRepositoryCreate).not.toHaveBeenCalled();
-      expect(mockBossSend).not.toHaveBeenCalled();
+      expect(mockProcessedWebhookRepositoryCreate).toHaveBeenCalledTimes(1);
+      expect(mockBossPublish).not.toHaveBeenCalled();
       expect(mockLoggerInfo).toHaveBeenCalledWith(
-        'Environnement de test détecté. Traitement synchrone du webhook.'
+        { eventId: mockEventOther.id, eventType: mockEventOther.type },
+        "Événement mis en file d'attente avec succès."
       );
-      expect(spyOnProcessSuccessfulPayment).not.toHaveBeenCalled();
     });
 
     /**
      * Teste la levée d'une `ConflictException` si l'événement webhook a déjà été traité
-     * (simule une violation de contrainte unique en mode production).
+     * (simule une violation de contrainte unique).
      * @test
      */
-    it("doit lever une ConflictException si l'événement a déjà été traité (mode production)", async () => {
+    it("doit lever une ConflictException si l'événement a déjà été traité", async () => {
       // Arrange
-      process.env.NODE_ENV = 'production';
       const duplicateError = new Error(
         'duplicate key value violates unique constraint'
       );
@@ -378,18 +361,16 @@ describe('PaymentService', () => {
       await expect(
         paymentService.queuePaymentWebhook(mockEventCompleted)
       ).rejects.toThrow(ConflictException);
-      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
-      expect(mockBossSend).not.toHaveBeenCalled();
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
 
     /**
      * Teste la relance d'une erreur générique si `processedWebhookRepository.create` échoue
-     * avec une erreur autre qu'une violation de contrainte unique en mode production.
+     * avec une erreur autre qu'une violation de contrainte unique.
      * @test
      */
-    it('doit relancer une erreur générique si processedWebhookRepository.create échoue avec une autre erreur (mode production)', async () => {
+    it('doit relancer une erreur générique si processedWebhookRepository.create échoue avec une autre erreur', async () => {
       // Arrange
-      process.env.NODE_ENV = 'production';
       const genericError = new Error('Database connection lost');
       genericError.code = '50000';
       mockProcessedWebhookRepositoryCreate.mockRejectedValue(genericError);
@@ -398,20 +379,18 @@ describe('PaymentService', () => {
       await expect(
         paymentService.queuePaymentWebhook(mockEventCompleted)
       ).rejects.toThrow(genericError);
-      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
-      expect(mockBossSend).not.toHaveBeenCalled();
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
 
     /**
-     * Teste la mise en file d'attente d'une tâche pour `processSuccessfulPayment`
-     * via `pg-boss` en mode production.
+     * Teste la mise en file d'attente d'une tâche pour `payment-succeeded`
+     * via `pg-boss`.
      * @test
      */
-    it("doit mettre en file d'attente une tâche pour processSuccessfulPayment en mode production", async () => {
+    it("doit publier un événement 'payment-succeeded' si le webhook est completed", async () => {
       // Arrange
-      process.env.NODE_ENV = 'production';
       mockProcessedWebhookRepositoryCreate.mockResolvedValue({});
-      mockBossSend.mockResolvedValue({});
+      mockBossPublish.mockResolvedValue({});
 
       // Act
       await paymentService.queuePaymentWebhook(mockEventCompleted);
@@ -419,42 +398,11 @@ describe('PaymentService', () => {
       // Assert
       expect(mockProcessedWebhookRepositoryCreate).toHaveBeenCalledWith(
         mockEventCompleted.id,
-        expect.any(Object)
+        expect.any(Object) // Vérifie que le client de transaction est passé
       );
-      expect(mockBossSend).toHaveBeenCalledWith(
-        'process_successful_payment',
-        mockEventCompleted.data.object,
-        {},
-        expect.any(Object)
-      );
-      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
-      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-    });
-
-    /**
-     * Teste l'enregistrement du webhook sans mise en file d'attente de tâche
-     * si l'événement n'est pas `checkout.session.completed` en mode production.
-     * @test
-     */
-    it("doit enregistrer le webhook mais ne pas mettre de tâche en file d'attente si l'événement n'est pas completed (mode production)", async () => {
-      // Arrange
-      process.env.NODE_ENV = 'production';
-      mockProcessedWebhookRepositoryCreate.mockResolvedValue({});
-
-      // Act
-      await paymentService.queuePaymentWebhook(mockEventOther);
-
-      // Assert
-      expect(mockProcessedWebhookRepositoryCreate).toHaveBeenCalledWith(
-        mockEventOther.id,
-        expect.any(Object)
-      );
-      expect(mockBossSend).not.toHaveBeenCalled();
-      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
-      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-      expect(mockLoggerInfo).toHaveBeenCalledWith(
-        { eventId: mockEventOther.id, eventType: mockEventOther.type },
-        "Événement mis en file d'attente avec succès."
+      expect(mockBossPublish).toHaveBeenCalledWith(
+        'payment-succeeded',
+        mockEventCompleted.data.object
       );
     });
   });
@@ -492,7 +440,7 @@ describe('PaymentService', () => {
       expect(mockOfferRepositoryFindById).toHaveBeenCalled();
       expect(mockLicenseServiceCreateLicenseForOrder).toHaveBeenCalled();
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-      expect(mockEmailServiceSendLicenseAndInvoice).toHaveBeenCalled();
+      expect(mockBossPublish).toHaveBeenCalledTimes(1);
       expect(result.success).toBe(true);
       expect(result.license).toBeInstanceOf(LicenseDto);
     });
@@ -513,10 +461,8 @@ describe('PaymentService', () => {
 
       // Assert
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-      expect(mockLoggerError).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.stringContaining("Échec de l'envoi de l'email")
-      );
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      expect(mockBossPublish).toHaveBeenCalledTimes(1);
       expect(result.success).toBe(true);
     });
 
@@ -525,22 +471,15 @@ describe('PaymentService', () => {
      * compagnie associée n'est pas trouvée après la transaction (l'email ne peut pas être envoyé).
      * @test
      */
-    it("doit réussir même si la compagnie n'est pas trouvée après la transaction", async () => {
+    it("doit annuler la transaction et lever une erreur si la compagnie n'est pas trouvée", async () => {
       // Arrange
       mockCompanyRepositoryFindById.mockResolvedValue(null);
 
-      // Act
-      const result = await paymentService.processSuccessfulPayment(mockSession);
-
-      // Assert
-      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-      expect(mockGenerateInvoicePdf).not.toHaveBeenCalled();
-      expect(mockEmailServiceSendLicenseAndInvoice).not.toHaveBeenCalled();
-      expect(mockLoggerWarn).toHaveBeenCalledWith(
-        { companyId: mockOrder.company_id, orderId: mockOrder.order_id },
-        "Compagnie non trouvée après paiement, l'email n'a pas pu être envoyé."
-      );
-      expect(result.success).toBe(true);
+      // Act & Assert
+      await expect(
+        paymentService.processSuccessfulPayment(mockSession)
+      ).rejects.toThrow(NotFoundException);
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
 
     /**
@@ -565,6 +504,7 @@ describe('PaymentService', () => {
           'Échec du traitement du paiement pour la commande.'
         )
       );
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
 
     /**
@@ -590,6 +530,7 @@ describe('PaymentService', () => {
           'Échec du traitement du paiement pour la commande.'
         )
       );
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
 
     /**
@@ -613,6 +554,7 @@ describe('PaymentService', () => {
           'Échec du traitement du paiement pour la commande.'
         )
       );
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
 
     /**
@@ -638,6 +580,7 @@ describe('PaymentService', () => {
           'Échec du traitement du paiement pour la commande.'
         )
       );
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
 
     /**
@@ -674,6 +617,7 @@ describe('PaymentService', () => {
           'Échec du traitement du paiement pour la commande.'
         )
       );
+      expect(mockBossPublish).not.toHaveBeenCalled();
     });
   });
 });

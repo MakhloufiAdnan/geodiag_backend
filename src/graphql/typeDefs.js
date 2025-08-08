@@ -150,7 +150,7 @@ export const typeDefs = `#graphql
         "Récupère les offres commerciales publiques."
         publicOffers: [Offer!]
 
-        "Récupère TOUTES les offres, y compris non publiques (super-admin uniquement)."
+        "Récupère TOUTES les offres, y compris non publiques (super_admin uniquement)."
         allOffers: [Offer!]
 
         "Récupère une commande par son ID (admin de la compagnie propriétaire)."
@@ -181,13 +181,13 @@ export const typeDefs = `#graphql
         "Crée une session de paiement Stripe pour une commande (admin de compagnie)."
         createCheckoutSession(orderId: ID!): CheckoutSessionPayload!
 
-        "Crée une nouvelle offre commerciale (super-admin)."
+        "Crée une nouvelle offre commerciale (super_admin)."
         createOffer(input: CreateOfferInput!): CreateOfferPayload!
 
-        "Met à jour une offre existante (super-admin)."
+        "Met à jour une offre existante (super_admin)."
         updateOffer(offerId: ID!, input: UpdateOfferInput!): UpdateOfferPayload!
 
-        "Supprime une offre (super-admin)."
+        "Supprime une offre (super_admin)."
         deleteOffer(offerId: ID!): Boolean!
     }
 `;

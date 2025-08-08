@@ -1,5 +1,7 @@
 /**
  * @file Configuration centrale pour le framework de test Jest.
+ * @description Cette version utilise le token <rootDir> de Jest pour construire
+ * des chemins d'alias fiables, ce qui est la pratique standard.
  * @see https://jestjs.io/docs/configuration
  * @type {import('jest').Config}
  */
@@ -26,8 +28,8 @@ const config = {
   transform: {},
 
   /**
-   * @description Crée des alias pour les chemins d'importation.
-   * Cela résout les problèmes de chemins relatifs complexes (ex: ../../../)
+   * @description Crée des alias pour les chemins d'importation en utilisant
+   * le token <rootDir> de Jest pour une résolution de chemin robuste.
    */
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

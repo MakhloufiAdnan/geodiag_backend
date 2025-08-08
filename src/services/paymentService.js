@@ -5,9 +5,7 @@ import companyRepository from '../repositories/companyRepository.js';
 import offerRepository from '../repositories/offerRepository.js';
 import processedWebhookRepository from '../repositories/processedWebhookRepository.js';
 import licenseService from './licenseService.js';
-import emailService from './emailService.js';
 import { LicenseDto } from '../dtos/licenseDto.js';
-import { generateInvoicePdf } from '../utils/pdfGenerator.js';
 import {
   ForbiddenException,
   NotFoundException,
@@ -17,7 +15,7 @@ import {
 
 import logger from '../config/logger.js';
 import { withTransaction } from '../utils/dbTransaction.js';
-import boss from '../worker/index.js'; // Import de pg-boss
+import boss from '../worker/boss.js'; // Import de pg-boss
 
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -87,47 +85,34 @@ class PaymentService {
   /**
    * Met en file d'attente un événement webhook pour un traitement asynchrone.
    * Gère l'idempotence en vérifiant si l'événement a déjà été traité.
-   * En environnement de test, traite l'événement de manière synchrone pour simplifier les assertions.
    *
    * @param {object} event - L'objet événement complet et validé de Stripe.
    * @returns {Promise<void>}
    * @throws {ConflictException} Si l'événement webhook est un doublon.
    */
   async queuePaymentWebhook(event) {
-    // En environnement de test, permet de contourner la file d'attente pour un résultat immédiat.
-    if (process.env.NODE_ENV === 'test') {
-      logger.info(
-        'Environnement de test détecté. Traitement synchrone du webhook.'
-      );
-      if (event.type === 'checkout.session.completed') {
-        await this.processSuccessfulPayment(event.data.object);
+    // La persistance du webhook en base de données pour l'idempotence
+    // est une opération qui nécessite une transaction.
+    // L'appel à la méthode create est déplacé dans une transaction pour éviter
+    // les erreurs de client de base de données.
+    try {
+      await withTransaction(async (client) => {
+        await processedWebhookRepository.create(event.id, client);
+      });
+    } catch (err) {
+      if (err.code === '23505') {
+        throw new ConflictException('Événement déjà traité.');
       }
-      return;
+      throw err;
     }
 
-    // En production, utilisation d'une transaction pour garantir l'atomicité de l'opération.
-    await withTransaction(async (client) => {
-      try {
-        // Tente d'insérer l'ID de l'événement. Échoue si déjà présent.
-        await processedWebhookRepository.create(event.id, client);
-      } catch (err) {
-        if (err.code === '23505') {
-          // Violation de contrainte unique
-          throw new ConflictException('Événement déjà traité.');
-        }
-        throw err; // Relance les autres erreurs
-      }
-
-      // Si l'événement est un paiement réussi, on crée une tâche pour le worker via pg-boss.
-      if (event.type === 'checkout.session.completed') {
-        await boss.send(
-          'process_successful_payment',
-          event.data.object, // Le payload de la tâche est la session Stripe
-          {}, // Options de tâche (vide pour l'instant, mais peut être utilisé pour des délais, etc.)
-          client // Le client de transaction pour que la tâche soit dans la même transaction
-        );
-      }
-    });
+    // Si l'événement est un paiement réussi et qu'il n'est pas un doublon,
+    // on publie un événement pour que le worker puisse le traiter.
+    // L'appel à boss.publish DOIT être en dehors de la transaction
+    // pour éviter les problèmes d'intégration.
+    if (event.type === 'checkout.session.completed') {
+      await boss.publish('payment-succeeded', event.data.object);
+    }
 
     logger.info(
       { eventId: event.id, eventType: event.type },
@@ -136,8 +121,8 @@ class PaymentService {
   }
 
   /**
-   * Traite un paiement réussi. Cette méthode est appelée par un worker.
-   * Crée le paiement, met à jour la commande, génère la licence, et envoie un email de confirmation.
+   * Traite un paiement réussi. Cette méthode est maintenant le "publisher" de l'événement.
+   * Crée le paiement, met à jour la commande, et génère la licence.
    *
    * @param {object} session - L'objet session de Stripe, payload de la tâche.
    * @returns {Promise<{success: boolean, license: LicenseDto}>} Le résultat de l'opération.
@@ -145,84 +130,84 @@ class PaymentService {
    */
   async processSuccessfulPayment(session) {
     const orderId = session.metadata.orderId;
+    let license, updatedOrder, company, offer;
 
     try {
       // Toutes les opérations de base de données sont encapsulées dans une transaction.
-      const { newLicense, updatedOrder, offer } = await withTransaction(
-        async (client) => {
-          const paymentData = {
-            order_id: orderId,
-            gateway_ref: session.payment_intent,
-            amount: session.amount_total / 100,
-            status: 'completed',
-            method: 'card',
-          };
-          await paymentRepository.create(paymentData, client);
+      // La transaction gère la création du paiement, la mise à jour de la commande et la création de la licence.
+      ({
+        newLicense: license,
+        updatedOrder,
+        company,
+        offer,
+      } = await withTransaction(async (client) => {
+        const paymentData = {
+          order_id: orderId,
+          gateway_ref: session.payment_intent,
+          amount: session.amount_total / 100,
+          status: 'completed',
+          method: 'card',
+        };
+        await paymentRepository.create(paymentData, client);
 
-          const order = await orderRepository.updateStatus(
-            orderId,
-            'completed',
-            client
-          );
-          if (!order)
-            throw new NotFoundException(`Commande ${orderId} non trouvée.`);
-
-          const associatedOffer = await offerRepository.findById(
-            order.offer_id,
-            client
-          );
-          if (!associatedOffer)
-            throw new NotFoundException(`Offre ${order.offer_id} non trouvée.`);
-
-          const license = await licenseService.createLicenseForOrder(
-            order,
-            associatedOffer,
-            client
-          );
-
-          return {
-            newLicense: license,
-            updatedOrder: order,
-            offer: associatedOffer,
-          };
-        }
-      );
-
-      // Les opérations externes (email, PDF) sont effectuées APRÈS le succès de la transaction.
-      const company = await companyRepository.findById(updatedOrder.company_id);
-      if (company) {
-        try {
-          logger.info({ orderId }, 'Génération de la facture PDF...');
-          const invoicePdfBuffer = await generateInvoicePdf(
-            updatedOrder,
-            company,
-            offer
-          );
-          await emailService.sendLicenseAndInvoice(
-            company,
-            newLicense,
-            invoicePdfBuffer
-          );
-        } catch (emailError) {
-          //Log l'erreur mais ne la relance pas. Le paiement est réussi
-          // même si la notification échoue.
-          logger.error(
-            { err: emailError, orderId },
-            "Échec de l'envoi de l'email après un paiement réussi."
-          );
-        }
-      } else {
-        logger.warn(
-          { companyId: updatedOrder.company_id, orderId },
-          "Compagnie non trouvée après paiement, l'email n'a pas pu être envoyé."
+        const order = await orderRepository.updateStatus(
+          orderId,
+          'completed',
+          client
         );
-      }
+        if (!order)
+          throw new NotFoundException(`Commande ${orderId} non trouvée.`);
+
+        const associatedOffer = await offerRepository.findById(
+          order.offer_id,
+          client
+        );
+        if (!associatedOffer)
+          throw new NotFoundException(`Offre ${order.offer_id} non trouvée.`);
+
+        const companyForOrder = await companyRepository.findById(
+          order.company_id,
+          client
+        );
+        if (!companyForOrder)
+          throw new NotFoundException(
+            `Compagnie ${order.company_id} non trouvée.`
+          );
+
+        const newLicense = await licenseService.createLicenseForOrder(
+          order,
+          associatedOffer,
+          client
+        );
+
+        return {
+          newLicense,
+          updatedOrder: order,
+          offer: associatedOffer,
+          company: companyForOrder,
+        };
+      }));
+
+      const eventPayload = {
+        order: updatedOrder,
+        company: company,
+        offer: offer,
+        license: license,
+      };
+
+      // PUBLICATION DE L'ÉVÉNEMENT
+      // La publication de l'événement a lieu ici, APRES le succès de la transaction.
+      await boss.publish('payment-succeeded', eventPayload);
 
       logger.info(
         { orderId },
-        `Traitement de la commande terminé avec succès.`
+        `Traitement de la commande terminé. Événement 'payment-succeeded' publié.`
       );
-      return { success: true, license: new LicenseDto(newLicense) };
+      return {
+      success: true,
+      license: new LicenseDto(license),
+      notificationPayload: eventPayload, 
+    };
     } catch (error) {
       logger.error(
         { err: error, orderId },

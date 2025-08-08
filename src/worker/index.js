@@ -1,6 +1,6 @@
 import PgBoss from 'pg-boss';
 import 'dotenv/config';
-import paymentJobHandler from '../jobs/paymentJobHandler.js';
+import notificationJobHandler from '../jobs/notificationJobHandler.js'; // Le nouvel import
 import dbConfig from '../config/database.js';
 import logger from '../config/logger.js';
 
@@ -22,14 +22,15 @@ async function startWorker() {
   await boss.start();
   logger.info('Boss started. Worker is ready to process jobs.');
 
-  const jobTypeName = 'process_successful_payment';
+  const jobTypeName = 'payment-succeeded';
   const workerOptions = {
     teamSize: 1,
     teamConcurrency: 1,
   };
 
-  // Le worker s'abonne aux tâches et les exécute.
-  await boss.work(jobTypeName, workerOptions, paymentJobHandler);
+  // Le worker s'abonne maintenant au nouvel événement 'payment-succeeded'.
+  // L'ancienne ligne 'await boss.work('process_successful_payment', paymentJobHandler);' a été supprimée.
+  await boss.subscribe(jobTypeName, workerOptions, notificationJobHandler);
 
   logger.info(`Worker subscribed to '${jobTypeName}' jobs.`);
 }

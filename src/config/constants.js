@@ -5,7 +5,7 @@
 export const ROLES = Object.freeze({
   ADMIN: 'admin',
   TECHNICIAN: 'technician',
-  SUPER_ADMIN: 'super-admin',
+  SUPER_ADMIN: 'super_admin',
 });
 
 export const ORDER_STATUS = Object.freeze({
