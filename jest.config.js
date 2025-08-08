@@ -7,12 +7,12 @@ const config = {
   /**
    * Un script qui s'exécute une seule fois avant le lancement de toutes les suites de test.
    */
-  globalSetup: './tests/jest.setup.js',
+  globalSetup: './tests/jest/jest.setup.js',
 
   /**
    * Un script qui s'exécute une seule fois après la fin de toutes les suites de test.
    */
-  globalTeardown: './tests/jest.teardown.js',
+  globalTeardown: './tests/jest/jest.teardown.js',
 
   /**
    * Indique que le dossier courant est la racine du projet.

@@ -8,7 +8,7 @@ import 'dotenv/config';
 import pg from 'pg';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import logger from '../src/config/logger.js';
+import logger from '../../src/config/logger.js';
 
 const execAsync = promisify(exec);
 

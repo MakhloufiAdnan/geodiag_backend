@@ -1,5 +1,4 @@
-import { Router } from 'express';
-import express from 'express';
+import express, { Router } from 'express';
 import paymentWebhookController from '../controllers/paymentWebhookController.js';
 import { validateWebhook } from '../middleware/webhookAuthMiddleware.js';
 
