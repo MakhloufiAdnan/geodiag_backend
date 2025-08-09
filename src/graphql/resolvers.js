@@ -11,6 +11,7 @@ import orderService from '../services/orderService.js';
 import paymentService from '../services/paymentService.js';
 import userService from '../services/userService.js';
 import licenseRepository from '../repositories/licenseRepository.js';
+import { ForbiddenException } from '../exceptions/ApiException.js';
 
 // --- HELPERS D'AUTORISATION ---
 
@@ -142,17 +143,30 @@ export const resolvers = {
       };
     },
 
+    /**
+     * Crée une session de paiement Stripe.
+     * Gère spécifiquement les ForbiddenException pour renvoyer
+     * un code d'erreur GraphQL approprié.
+     */
     createCheckoutSession: async (_, { orderId }, context) => {
       ensureAdmin(context.user);
-      const checkoutSessionData = await paymentService.createCheckoutSession(
-        orderId,
-        context.user
-      );
-      // Return the data wrapped in the expected payload structure
-      return {
-        sessionId: checkoutSessionData.sessionId,
-        url: checkoutSessionData.url,
-      };
+      try {
+        const checkoutSessionData = await paymentService.createCheckoutSession(
+          orderId,
+          context.user
+        );
+        return {
+          sessionId: checkoutSessionData.sessionId,
+          url: checkoutSessionData.url,
+        };
+      } catch (error) {
+        if (error instanceof ForbiddenException) {
+          throw new GraphQLError(error.message, {
+            extensions: { code: ERROR_CODES.FORBIDDEN },
+          });
+        }
+        throw error;
+      }
     },
 
     /**

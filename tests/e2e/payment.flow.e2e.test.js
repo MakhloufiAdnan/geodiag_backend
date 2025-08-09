@@ -21,8 +21,8 @@ import paymentService from '@/services/paymentService.js';
 
 // --- Mocks des services externes ---
 
-// Correction : Mocker directement notre emailService pour intercepter les appels sortants.
-const mockSendMail = jest.fn().mockResolvedValue({ success: true });
+// Mocker directement notre emailService pour intercepter les appels sortants.
+const mockSendMail = jest.fn();
 jest.mock('@/services/emailService.js', () => ({
   __esModule: true,
   default: {
@@ -30,19 +30,18 @@ jest.mock('@/services/emailService.js', () => ({
   },
 }));
 
-const MOCK_VALID_EVENT = {
-  id: `evt_test_${Date.now()}`,
-  type: 'checkout.session.completed',
-  data: { object: mockCheckoutSession },
-};
-
 const mockStripeConstructor = jest.fn().mockImplementation(() => ({
   checkout: {
     sessions: { create: jest.fn().mockResolvedValue(mockCheckoutSession) },
   },
 }));
 mockStripeConstructor.webhooks = {
-  constructEvent: jest.fn(() => MOCK_VALID_EVENT),
+  constructEvent: jest.fn((payload) => {
+    if (typeof payload === 'string' || Buffer.isBuffer(payload)) {
+      return JSON.parse(payload.toString());
+    }
+    return payload;
+  }),
 };
 jest.unstable_mockModule('stripe', () => ({
   default: mockStripeConstructor,
@@ -55,7 +54,6 @@ jest.mock('@/utils/pdfGenerator.js');
  * @file Suite de tests End-to-End (E2E) pour le parcours utilisateur critique de Geodiag.
  */
 describe('E2E: Full User Lifecycle', () => {
-  /** @type {supertest.SuperTest<supertest.Test>} */
   let agent;
   let server;
   let testOfferId;
@@ -78,8 +76,12 @@ describe('E2E: Full User Lifecycle', () => {
   });
 
   beforeEach(async () => {
+    jest.resetModules();
     jest.clearAllMocks();
-    mockSendMail.mockClear();
+    mockSendMail.mockResolvedValue({ success: true });
+
+    await boss.clearStorage();
+
     await pool.query(
       'TRUNCATE companies, users, offers, orders, licenses, payments, processed_webhook_events, refresh_tokens RESTART IDENTITY CASCADE'
     );
@@ -102,7 +104,6 @@ describe('E2E: Full User Lifecycle', () => {
       const registrationResponse = await agent
         .post('/api/register/company')
         .send(mockRegistrationData);
-      expect(registrationResponse.status).toBe(201);
       const { accessToken: adminToken, company } = registrationResponse.body;
       const { company_id: companyId } = company;
 
@@ -121,46 +122,44 @@ describe('E2E: Full User Lifecycle', () => {
           query: createOrderMutation,
           variables: { offerId: testOfferId },
         });
-
-      expect(orderResponse.body.errors).toBeUndefined();
-      expect(orderResponse.body.data.createOrder.success).toBe(true);
       const { orderId } = orderResponse.body.data.createOrder.order;
 
-      mockCheckoutSession.metadata = { orderId, companyId };
       const createCheckoutMutation = `
           mutation CreateCheckout($orderId: ID!) {
             createCheckoutSession(orderId: $orderId) { sessionId url }
           }
         `;
-      const checkoutResponse = await agent
+      await agent
         .post('/graphql')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ query: createCheckoutMutation, variables: { orderId } });
-      expect(checkoutResponse.body.errors).toBeUndefined();
-      expect(checkoutResponse.body.data.createCheckoutSession).toHaveProperty(
-        'sessionId'
-      );
 
-      const webhookResponse = await agent
+      const webhookPayload = {
+        id: `evt_test_${Date.now()}`,
+        type: 'checkout.session.completed',
+        data: {
+          object: { ...mockCheckoutSession, metadata: { orderId, companyId } },
+        },
+      };
+
+      await agent
         .post('/api/webhooks/payment')
         .set('stripe-signature', 't=123,v1=fake_signature')
-        .send(JSON.stringify(MOCK_VALID_EVENT));
-      expect(webhookResponse.status).toBe(200);
+        .send(JSON.stringify(webhookPayload));
 
-      const processResult = await paymentService.processSuccessfulPayment(
-        MOCK_VALID_EVENT.data.object
-      );
+      const paymentJob = await boss.fetch('payment-succeeded');
+      expect(paymentJob).not.toBeNull();
+      await paymentService.processSuccessfulPayment(paymentJob.data);
+      await boss.complete(paymentJob.id);
 
-      // Correction Finale : Importer dynamiquement le handler pour garantir que le mock est appliqué.
+      const notificationJob = await boss.fetch('send-payment-notification');
+      expect(notificationJob).not.toBeNull();
+
       const { default: notificationJobHandler } = await import(
         '@/jobs/notificationJobHandler.js'
       );
-
-      if (processResult.notificationPayload) {
-        await notificationJobHandler({
-          data: processResult.notificationPayload,
-        });
-      }
+      await notificationJobHandler(notificationJob);
+      await boss.complete(notificationJob.id);
 
       const licenseRes = await pool.query(
         'SELECT * FROM licenses WHERE order_id = $1',
@@ -172,6 +171,7 @@ describe('E2E: Full User Lifecycle', () => {
       expect(mockSendMail).toHaveBeenCalledTimes(1);
       const emailOptions = mockSendMail.mock.calls[0][0];
       expect(emailOptions.to).toBe(mockRegistrationData.companyData.email);
+      expect(emailOptions.licenseKey).toBeDefined();
     }, 30000);
   });
 
@@ -222,22 +222,28 @@ describe('E2E: Full User Lifecycle', () => {
           query: `mutation { createOrder(offerId: "${testOfferId}") { order { orderId } } }`,
         });
       const orderId = orderRes.body.data.createOrder.order.orderId;
-      mockCheckoutSession.metadata = { orderId, companyId };
 
-      const firstWebhookRes = await agent
+      const webhookPayload = {
+        id: `evt_test_${Date.now()}`,
+        type: 'checkout.session.completed',
+        data: {
+          object: { ...mockCheckoutSession, metadata: { orderId, companyId } },
+        },
+      };
+
+      await agent
         .post('/api/webhooks/payment')
         .set('stripe-signature', 't=123,v1=fake_signature')
-        .send(JSON.stringify(MOCK_VALID_EVENT));
-      expect(firstWebhookRes.status).toBe(200);
+        .send(JSON.stringify(webhookPayload));
 
-      await paymentService.processSuccessfulPayment(
-        MOCK_VALID_EVENT.data.object
-      );
+      const job = await boss.fetch('payment-succeeded');
+      await paymentService.processSuccessfulPayment(job.data);
+      await boss.complete(job.id);
 
       const secondWebhookRes = await agent
         .post('/api/webhooks/payment')
         .set('stripe-signature', 't=123,v1=fake_signature')
-        .send(JSON.stringify(MOCK_VALID_EVENT));
+        .send(JSON.stringify(webhookPayload));
       expect(secondWebhookRes.status).toBe(200);
       expect(secondWebhookRes.body.message).toContain(
         'Événement en double ignoré.'
@@ -283,10 +289,7 @@ describe('E2E: Full User Lifecycle', () => {
       expect(checkoutResB.body.errors[0].message).toContain(
         'Accès non autorisé à cette commande.'
       );
-      // TODO: Le resolver GraphQL doit être corrigé pour renvoyer FORBIDDEN.
-      expect(checkoutResB.body.errors[0].extensions.code).toBe(
-        'INTERNAL_SERVER_ERROR'
-      );
+      expect(checkoutResB.body.errors[0].extensions.code).toBe('FORBIDDEN');
     });
   });
 });

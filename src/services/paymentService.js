@@ -15,7 +15,7 @@ import {
 
 import logger from '../config/logger.js';
 import { withTransaction } from '../utils/dbTransaction.js';
-import boss from '../worker/boss.js'; // Import de pg-boss
+import boss from '../worker/boss.js';
 
 const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -58,8 +58,14 @@ class PaymentService {
       throw new NotFoundException('Offre associée à la commande non trouvée.');
     }
 
+    const company = await companyRepository.findById(order.company_id);
+    if (!company) {
+      throw new NotFoundException(`Compagnie ${order.company_id} non trouvée.`);
+    }
+
     const session = await stripeClient.checkout.sessions.create({
       payment_method_types: ['card'],
+      customer_email: company.email,
       line_items: [
         {
           price_data: {
@@ -121,26 +127,22 @@ class PaymentService {
   }
 
   /**
-   * Traite un paiement réussi. Cette méthode est maintenant le "publisher" de l'événement.
-   * Crée le paiement, met à jour la commande, et génère la licence.
-   *
-   * @param {object} session - L'objet session de Stripe, payload de la tâche.
-   * @returns {Promise<{success: boolean, license: LicenseDto}>} Le résultat de l'opération.
-   * @throws {ApiException} Si une erreur survient durant le traitement.
+   * Traite un paiement réussi, crée la licence et publie un événement de notification.
+   * @param {object} session - L'objet session de Stripe.
+   * @returns {Promise<object>} Le résultat de l'opération, incluant le payload pour la notification.
    */
   async processSuccessfulPayment(session) {
-    const orderId = session.metadata.orderId;
-    let license, updatedOrder, company, offer;
+    // Vérifier que la session et ses métadonnées existent.
+    if (!session?.metadata) {
+      throw new ApiException(
+        400,
+        'Session de paiement invalide ou métadonnées manquantes.'
+      );
+    }
+    const { orderId, companyId } = session.metadata;
 
     try {
-      // Toutes les opérations de base de données sont encapsulées dans une transaction.
-      // La transaction gère la création du paiement, la mise à jour de la commande et la création de la licence.
-      ({
-        newLicense: license,
-        updatedOrder,
-        company,
-        offer,
-      } = await withTransaction(async (client) => {
+      const transactionResult = await withTransaction(async (client) => {
         const paymentData = {
           order_id: orderId,
           gateway_ref: session.payment_intent,
@@ -166,12 +168,15 @@ class PaymentService {
           throw new NotFoundException(`Offre ${order.offer_id} non trouvée.`);
 
         const companyForOrder = await companyRepository.findById(
-          order.company_id,
+          companyId,
           client
         );
         if (!companyForOrder)
-          throw new NotFoundException(
-            `Compagnie ${order.company_id} non trouvée.`
+          throw new NotFoundException(`Compagnie ${companyId} non trouvée.`);
+        if (!companyForOrder.email)
+          throw new ApiException(
+            500,
+            `Email manquant pour la compagnie ${companyId}.`
           );
 
         const newLicense = await licenseService.createLicenseForOrder(
@@ -186,28 +191,30 @@ class PaymentService {
           offer: associatedOffer,
           company: companyForOrder,
         };
-      }));
+      });
 
-      const eventPayload = {
-        order: updatedOrder,
-        company: company,
-        offer: offer,
-        license: license,
+      const notificationPayload = {
+        order: transactionResult.updatedOrder,
+        company: transactionResult.company,
+        offer: transactionResult.offer,
+        license: transactionResult.newLicense,
+        recipientEmail: transactionResult.company.email,
       };
 
       // PUBLICATION DE L'ÉVÉNEMENT
-      // La publication de l'événement a lieu ici, APRES le succès de la transaction.
-      await boss.publish('payment-succeeded', eventPayload);
+      await boss.publish('send-payment-notification', notificationPayload);
 
       logger.info(
         { orderId },
-        `Traitement de la commande terminé. Événement 'payment-succeeded' publié.`
+        `Traitement de la commande terminé. Événement 'send-payment-notification' publié.`
       );
+
+      // Retourner le payload pour la testabilité.
       return {
-      success: true,
-      license: new LicenseDto(license),
-      notificationPayload: eventPayload, 
-    };
+        success: true,
+        license: new LicenseDto(transactionResult.newLicense),
+        notificationPayload: notificationPayload,
+      };
     } catch (error) {
       logger.error(
         { err: error, orderId },

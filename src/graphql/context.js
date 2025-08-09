@@ -1,19 +1,18 @@
 /**
  * @file Crée et exporte la fonction de contexte GraphQL.
- * @description Ce module centralise la logique de création du contexte pour chaque
- * requête GraphQL. Il gère l'authentification de l'utilisateur via le token JWT
- * et injecte les DataLoaders pour optimiser les requêtes à la base de données.
+ * @description Ce module centralise la logique de création du contexte. Il gère
+ * l'authentification, met en cache les données utilisateur dans Redis pour optimiser
+ * les performances, et injecte les DataLoaders.
  */
 
 import jwt from 'jsonwebtoken';
 import { pool } from '../db/index.js';
 import { createDataLoaders } from './dataloaders.js';
 import logger from '../config/logger.js';
+import redisClient from '../config/redisClient.js'; 
 
-/**
- * @typedef {import('express').Request} ExpressRequest
- * @typedef {import('./dataloaders.js').DataLoaders} DataLoaders
- */
+const USER_CACHE_PREFIX = 'user-cache:';
+const USER_CACHE_TTL_SECONDS = 60; // Cache de 1 minute
 
 /**
  * @description Crée le contexte GraphQL pour une requête.
@@ -44,7 +43,32 @@ export const createGraphQLContext = async ({ req }) => {
       return { dataloaders };
     }
 
-    // 4. Récupère l'utilisateur depuis la base de données.
+    const cacheKey = `${USER_CACHE_PREFIX}${decoded.userId}`;
+
+    // --- ÉTAPE 1 - VÉRIFICATION DU CACHE ---
+    try {
+      const cachedUser = await redisClient.get(cacheKey);
+      if (cachedUser) {
+        logger.debug(
+          { userId: decoded.userId },
+          'Cache HIT pour le contexte utilisateur.'
+        );
+        return { user: JSON.parse(cachedUser), dataloaders };
+      }
+    } catch (redisError) {
+      logger.error(
+        { err: redisError },
+        "Erreur d'accès au cache Redis pour le contexte."
+      );
+      // Ne pas bloquer la requête si Redis est indisponible.
+    }
+
+    logger.debug(
+      { userId: decoded.userId },
+      'Cache MISS pour le contexte utilisateur.'
+    );
+
+    // --- ÉTAPE 2 - RÉCUPÉRATION DEPUIS LA BASE DE DONNÉES (CACHE MISS) ---
     const { rows } = await pool.query(
       'SELECT user_id, company_id, email, role, is_active FROM users WHERE user_id = $1',
       [decoded.userId]
@@ -61,7 +85,6 @@ export const createGraphQLContext = async ({ req }) => {
     }
 
     // 6. Formater l'objet utilisateur brut de la BDD en un objet standard (camelCase).
-    // C'est cette étape qui garantit la cohérence pour le reste de l'application.
     const userContext = {
       userId: currentUser.user_id,
       companyId: currentUser.company_id,
@@ -70,7 +93,22 @@ export const createGraphQLContext = async ({ req }) => {
       isActive: currentUser.is_active,
     };
 
-    // 7. Retourne le contexte complet avec l'utilisateur authentifié.
+    // --- ÉTAPE 3 - MISE EN CACHE ---
+    try {
+      await redisClient.set(
+        cacheKey,
+        JSON.stringify(userContext),
+        'EX',
+        USER_CACHE_TTL_SECONDS
+      );
+    } catch (redisError) {
+      logger.error(
+        { err: redisError },
+        'Erreur de mise en cache Redis pour le contexte.'
+      );
+    }
+
+    // 6. Formater l'objet utilisateur brut de la BDD en un objet standard (camelCase).
     return { user: userContext, dataloaders };
   } catch (error) {
     // Log l'erreur si le token est invalide ou expiré, sans bloquer la requête.

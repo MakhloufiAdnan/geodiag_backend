@@ -21,7 +21,7 @@ WORKDIR /app
 RUN addgroup -S appgroup && \
     adduser -S appuser -G appgroup && \
     chown -R appuser:appgroup /app && \
-    apk add --no-cache curl openssh-client postgresql-client
+    apk add --no-cache curl postgresql-client
 
 # Copie les artefacts nécessaires depuis l'étape 'builder' en assignant
 # directement le bon propriétaire pour plus de sécurité.
